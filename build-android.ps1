@@ -27,7 +27,7 @@ if (-not (Test-Path -LiteralPath $keyPath)) {
     # This is a local development key. Keep it to install future builds as updates.
     Run-Checked 'keytool' @('-genkeypair','-keystore',$keyPath,'-storetype','PKCS12','-storepass','android','-keypass','android','-alias','still-personal','-keyalg','RSA','-keysize','2048','-validity','10000','-dname','CN=Still Personal,OU=Local Development')
 }
-$apkPath = Join-Path $projectRoot 'Still.apk'
+$apkPath = Join-Path $projectRoot 'Medi-Personal-Fidget-Toy.apk'
 Run-Checked (Join-Path $toolsRoot 'apksigner.bat') @('sign','--ks',$keyPath,'--ks-key-alias','still-personal','--ks-pass','pass:android','--key-pass','pass:android','--out',$apkPath,(Join-Path $buildRoot 'aligned.apk'))
 Run-Checked (Join-Path $toolsRoot 'apksigner.bat') @('verify','--verbose',$apkPath)
 Write-Output "APK built: $apkPath"

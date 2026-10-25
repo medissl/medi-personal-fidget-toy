@@ -1,60 +1,45 @@
-# Still
+# Medi Personal Fidget Toy
 
-A personal, offline Android collection of sensory toys. Open it, press Play, pick a toy from the vertical collection, and close the toy whenever you like.
+An offline Android fidget collection for personal use.
 
-## First version
+## Download on your phone
 
-- **Stardust:** rainbow particles. One finger gathers, two fingers orbit and pinch, three swirl, four or more bloom. Rainbow, ember, and moonlight palettes.
-- **Little pond:** make ripples and gently push floating leaves.
-- **Bubble pad:** press individual bubbles or sweep across them; press again to reverse them.
-- **Slow dial:** rotate a tactile dial with small clicks.
+[Download v0.2.0](https://github.com/medissl/medi-personal-fidget-toy/releases/download/v0.2.0/Medi-Personal-Fidget-Toy.apk), then open it on Android. It updates v0.1.0 using the same application ID and local key. Preferences are preserved; old particle counts migrate to the denser simulation. Requires Android 8+ and a current Android System WebView.
 
-Touch sounds, music, haptics, volume, brightness, gentler motion, and particle amount are adjustable and saved locally. Music starts off. Pausing, opening settings, or backgrounding stops active feedback. Closing a toy returns to the collection's previous position.
+## Play
 
-No accounts, ads, analytics, backend, or online asset requests. The APK bundles the music and has **no Internet permission**. The only permission is vibration. Music attribution is in the app and [CREDITS.md](CREDITS.md).
+The menu has the name, spinning particles, circular Play, random play on the left, and settings on the right. Selection scrolls vertically in two columns.
 
-## Install on your Android phone
+Gameplay fills the screen. Icon controls and bottom options fade after two seconds. Tap near the top to reveal them; swipes do not reveal them. Android system bars hide during play; an OS edge gesture can reveal them temporarily.
 
-[Download Still.apk](https://github.com/medissl/medi-personal-fidget-toy/releases/download/v0.1.0/Still.apk) directly on your phone, then open the downloaded file. Android may ask you to allow installation from the browser you used to download it. The build supports Android 8.0 and later with an up-to-date Android System WebView.
+Eight toys: Stardust, Little pond, Bubble pad, Slow dial, Slime, Buttons, Sand, and Newton's cradle.
 
-This first APK is locally signed for personal installation. Keep `.local/still-personal.p12` privately if you want future builds to install as updates. It is excluded from Git. A key regenerated on another machine will not match an existing installation.
+Stardust has 12,000 particles by default, adjustable from 3,000 to 18,000. Hold to gather; release to burst. Two fingers orbit/pinch, three make a vortex, four create separate wells, and five or more repel. Flow, Wave, Gravity, Ribbons, and Electric modes change the movement.
 
-## Preview and checks
+Recorded effects replace oscillator tones. Master, effects, and music volumes are separate. Samples are normalized; click rates and voice counts are bounded; a compressor controls peaks. Select Floating Cities, Carefree, or Dream Culture for music. Everything is bundled offline. No backend, account, ads, analytics, or Internet permission.
 
-Node 20+ is needed only for development. There are no npm dependencies in the shipped app.
+## Develop
 
-```sh
-npm ci
-npx playwright install chromium
-npm run check
-npm test
-npm start
-```
+Node 20+ is only needed for development. No npm packages ship in the app.
 
-The preview is at http://127.0.0.1:4173. `npm run check` validates syntax, offline packaging, particle stability, audio interruption, and compact dial geometry. `npm test` runs isolated Chromium interactions, including multitouch, pause/reset/resume, bundled music decoding, local preferences, and responsive layouts. Screenshots and results are written to ignored `test-results/`.
+    npm ci
+    npx playwright install chromium
+    npm run check
+    npm test
+    npm start
 
-If using an existing test browser, set `STILL_CHROMIUM_EXECUTABLE` to its executable path. The test runner otherwise uses Playwright's installed Chromium.
+Preview: http://127.0.0.1:4173. Screenshots: ignored test-results/v2 folder. Set STILL_CHROMIUM_EXECUTABLE to use an existing Chromium.
 
-## Build the APK
+Build on Windows PowerShell 7+ with JDK 21, Android SDK Build Tools 35.0.0 and Platform 35:
 
-Requires Windows PowerShell 7+, JDK 21, Android SDK Build Tools 35.0.0, and Android SDK Platform 35. Downloads are official Google Android SDK packages. Build output is ignored by Git.
+    ./build-android.ps1 -BuildTools "$env:ANDROID_HOME/build-tools/35.0.0" -AndroidJar "$env:ANDROID_HOME/platforms/android-35/android.jar"
 
-```powershell
-./build-android.ps1 -BuildTools "$env:ANDROID_HOME/build-tools/35.0.0" -AndroidJar "$env:ANDROID_HOME/platforms/android-35/android.jar"
-```
+This produces Medi-Personal-Fidget-Toy.apk. Keep .local/still-personal.p12 privately so future builds update the existing installation. Keys and APKs stay out of Git.
 
-The script compiles, dexes, packages, aligns, signs, and verifies `Still.apk`. The local signing key is generated only if absent. No Gradle, AndroidX, framework, or hosted build service is required.
+Read [AGENTS.md](AGENTS.md), [DESIGN.md](DESIGN.md), and [CREDITS.md](CREDITS.md) before changing the app.
 
-## Structure and decisions
+## Verification limits
 
-`web/` contains the UI and simulations. `android/` is a small native WebView wrapper with a restricted haptic bridge; it serves bundled files through an intercepted local HTTPS origin and rejects other resources and navigation. `scripts/` contains the local preview and focused checks.
+Node checks cover particle stability, gather/release, cancellation, compact layouts, and cradle bounds. Isolated Chromium checks cover minimal menus, two-column selection, tap-versus-swipe reveal, ten-touch input, recorded audio, toy flows, and preferences. Android packaging and signatures are checked.
 
-Read [DESIGN.md](DESIGN.md) for visual and interaction decisions and [AGENTS.md](AGENTS.md) before making changes. Runtime settings are validated on load. Particle counts, pointer input, audio triggers, and haptic pulses are bounded.
-
-## Current verification limits
-
-Browser tests verify the web experience; APK compilation and signature checks verify packaging. They do not establish physical haptic feel, speaker balance, Android-specific lifecycle timing, or frame rate and battery use on a phone. Those need a device pass. No medical outcome is claimed.
-
-Initial verification passed: focused Node checks, isolated Chromium interaction checks, screenshots inspected at narrow and typical phone sizes and desktop, Android compilation, and APK v2/v3 signature verification. Browser layout checks covered widths 320, 390, 768, 1024, and 1440, plus a 640×280 compact-window regression. The packaged manifest was inspected and includes vibration permission only.
-
-Slime and additional objects are future candidates after tuning the first collection on the actual phone.
+Samsung speaker loudness, physical haptics, battery/frame rate, and Android system-bar behavior still need a phone pass. The cradle uses simplified end-ball energy transfer; slime uses an elastic perimeter.

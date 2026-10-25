@@ -1,22 +1,46 @@
 # Assets and references
 
-## Bundled music
+## Music
 
-“Dream Culture” Kevin MacLeod (incompetech.com)
-Licensed under Creative Commons: By Attribution 4.0 License
-https://creativecommons.org/licenses/by/4.0/
+“Floating Cities”, “Carefree”, and “Dream Culture” by Kevin MacLeod (incompetech.com).
+Creative Commons Attribution 4.0: https://creativecommons.org/licenses/by/4.0/
 
-Source and attribution: https://www.incompetech.com/music/royalty-free/index.html?isrc=USUAN1300046
-Downloaded from: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Dream%20Culture.mp3
-The MP3 is bundled unchanged. Playback volume is reduced in the app. The track's end loops to its beginning.
+Bundled unchanged from:
 
-## Original assets
+- https://incompetech.com/music/royalty-free/mp3-royaltyfree/Floating%20Cities.mp3
+- https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3
+- https://incompetech.com/music/royalty-free/mp3-royaltyfree/Dream%20Culture.mp3
 
-The particle visuals, water and leaf illustration, silicone bubbles, dial, icon, and synthesized touch sounds were created for this app. No imagery, music, or code was extracted from the reference apps.
+Playback gain is adjustable; tracks loop. Attribution appears in settings.
 
-## Interaction research
+## Recorded effects
 
-- Triple A, SungLab: https://play.google.com/store/apps/details?id=com.sunglab.tripleafree
-- Atomus, SungLab: https://apps.apple.com/nl/app/atomus/id1605327908
-- Antistress – relaxation toys, JindoBlu: https://play.google.com/store/apps/details?id=com.JindoBlu.Antistress
-- Kenney Interface Sounds, considered as an alternative for future sample-based feedback (not bundled): https://kenney.nl/assets/interface-sounds
+Kenney Interface Sounds (CC0): https://kenney.nl/assets/interface-sounds
+
+- click.ogg: click_001.ogg
+- switch.ogg: switch_001.ogg
+- toggle.ogg: toggle_002.ogg
+
+Kenney Impact Sounds (CC0): https://kenney.nl/assets/impact-sounds
+
+- metal.ogg: impactMetal_light_000.ogg
+
+rubberduck, “40 CC0 water / splash / slime SFX” (CC0):
+https://opengameart.org/content/40-cc0-water-splash-slime-sfx
+
+- water.ogg / water2.ogg: splash_09.ogg / splash_10.ogg
+- pop.ogg / pop2.ogg: bubble_02.ogg / bubble_03.ogg
+- slime.ogg / slime2.ogg: slime_03.ogg / slime_07.ogg
+
+Files are bundled unchanged. At playback the app normalizes peaks, adjusts gain/rate, fades short effects, and compresses output.
+CC0: https://creativecommons.org/publicdomain/zero/1.0/
+
+## Visuals and research
+
+Toy visuals and icon artwork were created for this app.
+
+- https://play.google.com/store/apps/details?id=com.sunglab.atomus
+- https://play.google.com/store/apps/details?id=com.sunglab.tripleafree
+- https://play.google.com/store/apps/details?id=com.JindoBlu.Antistress
+
+No code, music, or imagery was extracted from these apps.

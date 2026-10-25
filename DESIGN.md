@@ -1,31 +1,39 @@
-# Still — a pocket of play
+# Medi Personal Fidget Toy — design
 
-## Purpose
+## Layout
 
-An offline collection of small sensory interactions for one person's comfort and enjoyment. Open a toy, explore it, leave whenever. No outcomes, progress, accounts, tracking, ads, or remote services.
+Follow the user's concrete Android game layout.
+Home: spinning particles above “Medi Personal Fidget Toy”; circular Play in the middle, random play on its left, menu/settings on its right.
+Selection: exactly two square boxes per row, vertical scrolling, each name in the box's top-left. No descriptions.
+Use a dark blue shell, bold system sans-serif, mint buttons, and simple icons. The toys carry the visual interest. Keep taglines, editorial headings, helper paragraphs, and category badges out of these screens.
 
-## Direction
+## Gameplay chrome
 
-The shell feels like a quiet collection of physical objects: charcoal surfaces, warm ivory serif titles, restrained sage controls, generous touch targets, and simple language. The toys carry the color and material. Keep the menu calm and the play area expansive.
+The canvas fills the phone. No title, gesture label, description, or button text.
+Back at top-left; pause/audio/reset icons at top-center; settings at top-right.
+Controls and bottom options fade after two seconds without a control interaction.
+A short tap beginning near the top reveals them. Swiping into the top never reveals them. Hidden controls are inert and cannot activate on the wake tap.
+Keyboard Tab reveals controls. Settings pause the toy and audio.
+Android immersive mode hides system bars while playing and restores normal bars in menus. OS edge gestures can reveal transient bars.
 
-We considered a bright, toy-store-like shelf and a darker, immersive collection. The darker collection better fits luminous particles and lets us keep the menu visually quieter than the toys.
+## Toys
 
-References: Atomus and Triple A by SungLab for touch-driven particle behavior; Antistress by JindoBlu for immediately usable, self-contained tactile toys. Study interaction principles and build original visuals rather than extracting their assets or reproducing their interfaces.
+Stardust: 12,000 particles across the screen initially; adjustable 3,000–18,000. Hold to gather; release the last finger for a charged burst. Cancellation, pause, backgrounding, resize, and exit never cause a burst. Two fingers set an orbit and pinch radius, three a vortex, four separate wells, and five or more repel. Flow, Wave, Gravity, Ribbons, and Electric change the movement. Keep colors saturated and release motion expansive.
+Pond: floating leaves, ripples, touch-driven drift, recorded water.
+Bubble pad: tall reversible silicone pad and recorded pop variations.
+Dial: circular dragging and short recorded detents; bound repeated playback.
+Slime: glossy elastic material, drag/stretch and spring back, recorded wet sounds.
+Buttons: distinct pressed surfaces with recorded mechanical clicks.
+Sand: persistent five-line rake marks; reset clears.
+Cradle: pull an end ball and release to transfer momentum. Bound swings to the viewport.
 
-## Flow and controls
+## Audio and comfort
 
-Home has one main action: Play. The collection scrolls vertically and each entry previews its actual material. A toy opens full screen with close and settings at the top. Closing returns to the same collection position. Maintain large, predictable controls and a clear way out.
+Recorded effects replace synthesized bleeps. Master/SFX/music gains are independent. Normalize short samples, compress peaks, and retain an audible adjustment range. Bound active voices and trigger rates. Offer different music choices.
+Preserve preferences and reduced motion. Keep controls readable when brightness is lowered.
+All runtime assets are local.
 
-Stardust: no touch drifts; one finger gathers; two fingers define an orbit with pinch-controlled radius; three create a vortex; four or more repel into a bloom. Palette changes remain explicit. Finger-count transitions should ease through the simulation rather than flash or reset.
+## References and verification
 
-Little pond: moving water, floating original leaves, ripples at contact, and finger forces that push leaves. Bubble pad: reversible presses, sweep input, soft silicone material. Slow dial: circular drag, stable angular wraparound, and tactile detents.
-
-## Sensory choices
-
-Keep touch sounds, background music, haptics, volume, visual brightness, gentler motion, and particle amount independently adjustable. Remember choices locally. Music is off initially. Respect the system reduced-motion preference on first launch. Settings pause the toy; app backgrounding suspends simulation and audio. Pausing must stop feedback as well as visuals.
-
-Use low, short haptic pulses with strength control; physical devices vary. Avoid sudden full-screen flashes, mandatory sound, loud surprise effects, and decorative animation that competes with play. Keep labels outside the toy's main touch area. Brightness changes affect visuals while controls remain readable.
-
-## Review
-
-Inspect narrow Android portrait, a typical phone, and larger screens. Check safe areas, long settings, vertical scrolling, readable contrast, focus visibility, and touch targets of at least 44 CSS pixels for primary controls. Verify gameplay by interacting, not just screenshots. Treat 60 fps as a target to measure, not a guarantee to advertise.
+Official SungLab Atomus/Triple A listings inform particle modes and multitouch; JindoBlu Antistress informs tactile variety. The user's hold/release description is an acceptance criterion. Use original simulations rather than claiming identical proprietary physics.
+Inspect rendered menu, selection, clear gameplay, revealed controls, and settings on phone sizes. Test gesture cancellation, tap-only reveal, timeout, and audio lifecycle. Build with the existing signing key and distinguish browser results from device verification.

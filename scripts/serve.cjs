@@ -8,6 +8,7 @@ const mime = {
   '.js': 'text/javascript',
   '.svg': 'image/svg+xml',
   '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
 };
 function createServer() {
   return http.createServer((req, res) => {

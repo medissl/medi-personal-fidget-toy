@@ -2,6 +2,10 @@ package app.still.personal;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Build;
+import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
@@ -21,12 +25,13 @@ public final class MainActivity extends Activity {
     private WebView web;
     private Vibrator vibrator;
     private long lastPulse;
+    private boolean immersive;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
         web = new WebView(this);
-        web.setBackgroundColor(0xff15191e);
+        web.setBackgroundColor(0xff14202a);
         web.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -68,6 +73,7 @@ public final class MainActivity extends Activity {
         if (path.endsWith(".js")) return "text/javascript";
         if (path.endsWith(".svg")) return "image/svg+xml";
         if (path.endsWith(".mp3")) return "audio/mpeg";
+        if (path.endsWith(".ogg")) return "audio/ogg";
         return null;
     }
 
@@ -86,6 +92,33 @@ public final class MainActivity extends Activity {
             int amplitude = safeStrength == 1 ? 65 : safeStrength == 2 ? 125 : 190;
             vibrator.vibrate(VibrationEffect.createOneShot(6 + safeKind * 4, vibrator.hasAmplitudeControl() ? amplitude : VibrationEffect.DEFAULT_AMPLITUDE));
         });
+    }
+
+    @JavascriptInterface public void setImmersive(boolean enabled) {
+        runOnUiThread(() -> { immersive = enabled; applyImmersive(); });
+    }
+
+    private void applyImmersive() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(!immersive);
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                if (immersive) controller.hide(WindowInsets.Type.systemBars());
+                else controller.show(WindowInsets.Type.systemBars());
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(immersive
+                ? View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN
+                  | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                  | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                : View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        }
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) applyImmersive();
     }
 
     @Override public void onBackPressed() {

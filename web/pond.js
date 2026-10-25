@@ -69,7 +69,7 @@
       this.ripples = [];
       this.leaves = Array.from({ length: 9 }, (_, i) => ({
         x: this.w * (0.15 + Math.random() * 0.7),
-        y: this.h * (0.18 + Math.random() * 0.5),
+        y: this.h * (0.05 + Math.random() * 0.9),
         vx: 0,
         vy: 0,
         angle: i * 2.4,
@@ -107,12 +107,12 @@
         l.angle += (l.vx * 0.006 + Math.sin(this.time * 0.3 + i) * 0.035) * dt;
         if (l.x < -40) l.x = this.w + 35;
         if (l.x > this.w + 40) l.x = -35;
-        if (l.y < 60) {
-          l.y = 60;
+        if (l.y < 25) {
+          l.y = 25;
           l.vy = Math.abs(l.vy);
         }
-        if (l.y > this.h - 180) {
-          l.y = this.h - 180;
+        if (l.y > this.h - 25) {
+          l.y = this.h - 25;
           l.vy = -Math.abs(l.vy);
         }
       }

@@ -28,7 +28,7 @@
       this.reset();
     }
     reset() {
-      this.cells = Array.from({ length: 30 }, () => ({ pressed: false, bounce: 0 }));
+      this.cells = Array.from({ length: 32 }, () => ({ pressed: false, bounce: 0 }));
       this.visited = new Map();
     }
     resize(w, h) {
@@ -36,8 +36,8 @@
       this.h = h;
     }
     layout() {
-      const gap = Math.max(28, Math.min((this.w - 48) / 5, (this.h - 320) / 6, 74));
-      return { gap, x: this.w / 2 - gap * 2, y: this.h * 0.46 - gap * 2.5 };
+      const gap = Math.max(14, Math.min((this.w - 36) / 4, (this.h - 80) / 8, 92));
+      return { gap, x: this.w / 2 - gap * 1.5, y: this.h / 2 - gap * 3.5 };
     }
     update(dt) {
       for (const cell of this.cells) cell.bounce = Math.max(0, cell.bounce - dt * 5);
@@ -49,20 +49,20 @@
       c.fillRect(0, 0, this.w, this.h);
       c.fillStyle = '#496c5c';
       c.beginPath();
-      c.roundRect(x - gap * 0.65, y - gap * 0.65, gap * 5.3, gap * 6.3, gap * 0.5);
+      c.roundRect(x - gap * 0.65, y - gap * 0.65, gap * 4.3, gap * 8.3, gap * 0.5);
       c.fill();
       c.strokeStyle = '#9cbf9c22';
       c.lineWidth = 2;
       c.stroke();
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 32; i++) {
         const cell = this.cells[i];
         bubble(
           c,
-          x + (i % 5) * gap,
-          y + Math.floor(i / 5) * gap,
+          x + (i % 4) * gap,
+          y + Math.floor(i / 4) * gap,
           gap * (0.37 - cell.bounce * 0.025),
           cell.pressed,
-          135 + Math.floor(i / 5) * 5
+          135 + Math.floor(i / 4) * 4
         );
       }
     }
@@ -70,11 +70,11 @@
       const { gap, x, y } = this.layout();
       const col = Math.round((p.x - x) / gap),
         row = Math.round((p.y - y) / gap);
-      if (col < 0 || col > 4 || row < 0 || row > 5) {
+      if (col < 0 || col > 3 || row < 0 || row > 7) {
         this.visited.delete(p.id);
         return;
       }
-      const index = row * 5 + col;
+      const index = row * 4 + col;
       if (
         Math.hypot(p.x - (x + col * gap), p.y - (y + row * gap)) > gap * 0.41 ||
         this.visited.get(p.id) === index
@@ -182,8 +182,8 @@
     geometry() {
       return {
         x: this.w / 2,
-        y: this.h * 0.44,
-        r: Math.max(12, Math.min(this.w * 0.31, (this.h - 300) * 0.35, 170)),
+        y: this.h * 0.5,
+        r: Math.max(12, Math.min(this.w * 0.38, this.h * 0.32, 220)),
       };
     }
     update() {}
@@ -196,7 +196,6 @@
       c.fillStyle = '#bab5ab';
       c.font = 'italic 15px Georgia';
       c.textAlign = 'center';
-      c.fillText('one little click at a time', x, y + r * 1.68);
     }
     down(p) {
       const { x, y, r } = this.geometry();
