@@ -19,8 +19,7 @@ $javaSources = @((Get-ChildItem -LiteralPath (Join-Path $sourceRoot 'java/app/st
 Run-Checked 'javac' (@('-encoding','UTF-8','-source','8','-target','8','-Xlint:-options','-bootclasspath',$platformJar,'-classpath',(Join-Path $toolsRoot 'core-lambda-stubs.jar'),'-d',(Join-Path $buildRoot 'classes')) + $javaSources)
 Run-Checked 'jar' @("-J-Djava.io.tmpdir=$buildRoot",'--create','--file',(Join-Path $buildRoot 'classes.jar'),'-C',(Join-Path $buildRoot 'classes'),'.')
 Run-Checked 'java' @('-cp',(Join-Path $toolsRoot 'lib/d8.jar'),'com.android.tools.r8.D8','--release','--lib',$platformJar,'--min-api','26','--output',(Join-Path $buildRoot 'dex'),(Join-Path $buildRoot 'classes.jar'))
-Copy-Item -LiteralPath (Join-Path $buildRoot 'resources.apk') -Destination (Join-Path $buildRoot 'unaligned.apk') -Force
-Run-Checked 'jar' @("-J-Djava.io.tmpdir=$buildRoot",'--update','--file',(Join-Path $buildRoot 'unaligned.apk'),'-C',(Join-Path $buildRoot 'dex'),'classes.dex')
+Run-Checked 'java' @('--source','21',(Join-Path $projectRoot 'scripts/PackApk.java'),(Join-Path $buildRoot 'resources.apk'),(Join-Path $buildRoot 'dex/classes.dex'),(Join-Path $buildRoot 'unaligned.apk'))
 Run-Checked (Join-Path $toolsRoot 'zipalign.exe') @('-f','-p','4',(Join-Path $buildRoot 'unaligned.apk'),(Join-Path $buildRoot 'aligned.apk'))
 $keyPath = Join-Path $projectRoot '.local/still-personal.p12'
 if (-not (Test-Path -LiteralPath $keyPath)) {
@@ -30,4 +29,5 @@ if (-not (Test-Path -LiteralPath $keyPath)) {
 $apkPath = Join-Path $projectRoot 'No-No-Stress.apk'
 Run-Checked (Join-Path $toolsRoot 'apksigner.bat') @('sign','--ks',$keyPath,'--ks-key-alias','still-personal','--ks-pass','pass:android','--key-pass','pass:android','--out',$apkPath,(Join-Path $buildRoot 'aligned.apk'))
 Run-Checked (Join-Path $toolsRoot 'apksigner.bat') @('verify','--verbose',$apkPath)
+Run-Checked 'java' @('--source','21',(Join-Path $projectRoot 'scripts/PackApk.java'),'--verify',$apkPath)
 Write-Output "APK built: $apkPath"

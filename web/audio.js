@@ -76,16 +76,6 @@
         })
         .then((b) => this.context.decodeAudioData(b))
         .then((buffer) => {
-          let peak = 0;
-          for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-            const data = buffer.getChannelData(ch);
-            for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
-          }
-          const scale = Math.min(6, 0.85 / Math.max(0.01, peak));
-          for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-            const data = buffer.getChannelData(ch);
-            for (let i = 0; i < data.length; i++) data[i] *= scale;
-          }
           this.buffers.set(name, buffer);
           return buffer;
         })
@@ -114,8 +104,8 @@
         enabled = this.active,
         volume = s.volume / 100;
       if (this.context) {
-        this.sfxGain.gain.value = enabled && s.sounds ? ((volume * s.sfxVolume) / 100) * 1.6 : 0;
-        this.musicGain.gain.value = enabled && s.music ? ((volume * s.musicVolume) / 100) * 1.4 : 0;
+        this.sfxGain.gain.value = enabled && s.sounds ? (volume * s.sfxVolume) / 100 : 0;
+        this.musicGain.gain.value = enabled && s.music ? (volume * s.musicVolume) / 100 : 0;
       }
       if (!enabled || !s.sounds) this.silence();
       const track = tracks[s.track] || tracks.floating;
@@ -233,7 +223,7 @@
       this.pulse(1);
     }
     carve() {
-      this.sample('carve', { duration: 0.12, interval: 85, volume: 0.75, group: 'carve' });
+      this.sample('carve', { duration: 0.32, interval: 230, volume: 0.9, group: 'carve' });
     }
     metal(strength = 0.5) {
       this.sample('clink', {
@@ -245,31 +235,36 @@
       });
     }
     glass() {
-      this.sample('glass', { duration: 1.1, interval: 180, volume: 1, group: 'glass' });
+      this.sample('glass', {
+        duration: 1.5,
+        interval: 220,
+        volume: 1,
+        rate: 0.9 + Math.random() * 0.16,
+        group: 'glass',
+      });
     }
     zip() {
-      this.sample('zipper', { duration: 0.18, interval: 110, volume: 1, group: 'zipper' });
+      this.sample('zipper', { duration: 0.24, interval: 230, volume: 1, group: 'zipper' });
     }
     packaging() {
-      this.sample('wrap', { duration: 0.1, interval: 40, volume: 1, group: 'wrap' });
+      this.sample('wrap', {
+        duration: 0.12,
+        interval: 55,
+        volume: 1,
+        rate: 0.95 + Math.random() * 0.1,
+        group: 'wrap',
+      });
       this.pulse(1);
     }
-    chop() {
-      this.sample('chop', { duration: 0.18, interval: 130, volume: 1, group: 'chop' });
-      this.sample('slime', {
-        duration: 0.09,
-        interval: 130,
-        volume: 0.22,
-        rate: 1.6,
-        group: 'chop-wet',
-      });
+    woodBreak() {
+      this.sample('chop', { duration: 0.18, interval: 180, volume: 0.9, group: 'wood-break' });
       this.pulse(2);
     }
     space(count = 1) {
       this.sample('space', {
         duration: 1.1,
         interval: 240,
-        volume: 0.35,
+        volume: 0.55,
         rate: [0.5, 0.667, 0.75, 1, 1.25][(count - 1) % 5],
         group: 'space',
       });

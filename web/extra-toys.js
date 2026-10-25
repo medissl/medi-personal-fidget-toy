@@ -248,7 +248,7 @@
       this.ctx.drawImage(this.surface, 0, 0, this.w, this.h);
     }
     down(p) {
-      this.previous.set(p.id, p);
+      this.previous.set(p.id, { x: p.x, y: p.y });
       this.move({ ...p, x: p.x + 0.1 });
       this.sound.pulse(1);
     }
@@ -278,7 +278,8 @@
         c.lineTo(p.x + nx * (off + 2), p.y + ny * (off + 2));
         c.stroke();
       }
-      this.previous.set(p.id, p);
+      this.previous.set(p.id, { x: p.x, y: p.y });
+      this.sound.carve?.();
     }
     up(p) {
       this.previous.delete(p.id);
@@ -313,11 +314,23 @@
       };
     }
     limit(i, a) {
-      const { r, start, length } = this.layout(),
-        pivot = start + i * r * 2.05,
-        min = Math.asin(Math.max(-0.95, Math.min(0.95, (r + 8 - pivot) / length))),
-        max = Math.asin(Math.max(-0.95, Math.min(0.95, (this.w - r - 8 - pivot) / length)));
-      return Math.max(min, Math.min(max, a));
+      const limit = Math.min(0.68, this.layout().maxAngle);
+      return Math.max(-limit, Math.min(limit, a));
+    }
+    constrain(){
+      // Weighted monotone projection keeps bob order without swapping identities.
+      const held=new Set(Array.from(this.drags.values()).map(d=>d.index)),blocks=[];
+      for(let i=0;i<5;i++){
+        const weight=held.has(i)?12:1;blocks.push({start:i,end:i,weight,angle:this.angle[i]*weight,velocity:this.velocity[i]*weight});
+        while(blocks.length>1){
+          const b=blocks[blocks.length-1],a=blocks[blocks.length-2];
+          if(a.angle/a.weight<=b.angle/b.weight)break;
+          blocks.splice(-2,2,{start:a.start,end:b.end,weight:a.weight+b.weight,angle:a.angle+b.angle,velocity:a.velocity+b.velocity});
+        }
+      }
+      for(const block of blocks)for(let i=block.start;i<=block.end;i++){
+        this.angle[i]=block.angle/block.weight;this.velocity[i]=block.velocity/block.weight*(block.start===block.end?1:.96);
+      }
     }
     positions() {
       const { r, start, length, top } = this.layout();
@@ -339,8 +352,8 @@
         for (let i = 0; i < 5; i++) {
           if (held.has(i)) {
             const delta = Math.max(
-              -5 * step,
-              Math.min(5 * step, held.get(i).angle - this.angle[i])
+              -2.2 * step,
+              Math.min(2.2 * step, held.get(i).angle - this.angle[i])
             );
             this.velocity[i] = delta / step;
             this.angle[i] += delta;
@@ -382,9 +395,10 @@
           const limit = this.limit(i, this.angle[i]);
           if (limit !== this.angle[i]) this.velocity[i] = 0;
           this.angle[i] = limit;
-          this.velocity[i] = Math.max(-7, Math.min(7, this.velocity[i]));
+          this.velocity[i] = Math.max(-2.8, Math.min(2.8, this.velocity[i]));
         }
       }
+      this.constrain();
       if (strongest > 25) {
         if (this.sound.metal) this.sound.metal(Math.min(1, strongest / 250));
         else this.sound.clack();
@@ -464,7 +478,10 @@
     }
     up(p, remaining, cancelled) {
       const drag = this.drags.get(p.id);
-      if (drag && cancelled) this.velocity[drag.index] = 0;
+      if (drag)
+        this.velocity[drag.index] = cancelled
+          ? 0
+          : Math.max(-1.6, Math.min(1.6, this.velocity[drag.index]));
       this.drags.delete(p.id);
     }
   }

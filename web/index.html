@@ -121,7 +121,7 @@
       /></label>
       <label class="range-row" for="density"
         ><span>Particles</span><output id="density-value"></output
-        ><input id="density" type="range" min="2400" max="14400" step="1200"
+        ><input id="density" type="range" min="4800" max="24000" step="2400"
       /></label>
       <details>
         <summary>Controls &amp; credits</summary>
@@ -137,8 +137,9 @@
         </p>
         <p>
           Music: Floating Cities, Carefree, and Dream Culture by Kevin MacLeod (incompetech.com), CC
-          BY 4.0. Recorded effects: Kenney, rubberduck, and AntumDeluge (CC0). Font: Fredoka (SIL
-          OFL 1.1). Everything is bundled offline.
+          BY 4.0 (creativecommons.org/licenses/by/4.0/). Music levels were normalized for this app.
+          Recorded effects: Kenney, rubberduck, AntumDeluge, Till Behrend, and StarNinjas (CC0).
+          Font: Fredoka (SIL OFL 1.1). Everything is bundled offline.
         </p>
         <p id="storage-note" role="status"></p>
       </details>
@@ -146,6 +147,7 @@
     <div id="notice" role="status" hidden></div>
     <audio id="bgm" preload="none" loop></audio>
     <script src="audio.js"></script>
+    <script src="particle-points.js"></script>
     <script src="particles.js"></script>
     <script src="pond.js"></script>
     <script src="tactile.js"></script>
@@ -153,6 +155,7 @@
     <script src="wood-lathe.js"></script>
     <script src="physics-toys.js"></script>
     <script src="everyday-toys.js"></script>
+    <script src="fluid-toys.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

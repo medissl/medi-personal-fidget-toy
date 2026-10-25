@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 — 2026-10-26
+
+- Fixed Windows APK asset paths that broke nested images, fonts, music, and every recorded effect.
+- Added raw local/central ZIP naming, payload, and uncompressed-audio checks after canonical APK assembly.
+- Matched music loudness at about -16 LUFS, balanced recorded effects with peak limiting, and replaced glass/wood effects with better-suited recordings.
+- Stardust uses 14,400 actual point sprites on exact black, with no history texture, dashed traces, blur layer, or white-marker overlay.
+- Added free bark carving, improved chucks, cuts below the silhouette, and falling severed wood.
+- Added chrome ball reflections, crumpled packaging bubbles, a full-screen zipper, and leaf/splash detail.
+- Replaced Carrots with touch-driven liquid lava and changed Glass Break to eight distinct vessels on a tabletop.
+- Fixed Sand pointer ownership and constrained cradle swing, speed, and bob order.
+
 ## 0.3.0 — 2026-10-25
 
 - Renamed No-No Stress; cream paper menu, STRESS emblem, GitHub/Play/Options layout.

@@ -26,17 +26,17 @@
   const icon = (name) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + icons[name] + '</svg>';
   document.querySelectorAll('[data-icon]').forEach((el) => (el.innerHTML = icon(el.dataset.icon)));
   const settings = {
-    schema: 3,
+    schema: 4,
     sounds: true,
     music: false,
     haptics: true,
     hapticStrength: 1,
     gentle: matchMedia('(prefers-reduced-motion: reduce)').matches,
-    volume: 70,
+    volume: 85,
     sfxVolume: 100,
-    musicVolume: 80,
+    musicVolume: 70,
     brightness: 100,
-    density: 7200,
+    density: 14400,
     track: 'floating',
   };
   try {
@@ -50,18 +50,16 @@
         ['musicVolume', 0, 100],
         ['brightness', 25, 100],
         ['hapticStrength', 1, 3],
-        ['density', 2400, 14400],
+        ['density', 4800, 24000],
       ]) {
         if (Number.isFinite(stored[key]))
           settings[key] = Math.min(max, Math.max(min, Math.round(stored[key])));
       }
-      if (stored.schema !== 3)
-        settings.density =
-          Math.round(((Number.isFinite(stored.density) ? stored.density : 12000) * 0.6) / 1200) *
-          1200;
+      if (stored.schema !== 4)
+        settings.density = (Number.isFinite(stored.density) ? stored.density : 7200) * 2;
       settings.density = Math.max(
-        2400,
-        Math.min(14400, Math.round(settings.density / 1200) * 1200)
+        4800,
+        Math.min(24000, Math.round(settings.density / 2400) * 2400)
       );
       if (['floating', 'carefree', 'dream'].includes(stored.track)) settings.track = stored.track;
     }
@@ -82,7 +80,7 @@
     slime: { title: 'Slime', type: 'Slime', preview: 'slimePreview' },
     wrap: { title: 'Packaging pop', type: 'Packaging', preview: 'wrapPreview' },
     zipper: { title: 'Zipper', type: 'Zipper', preview: 'zipperPreview' },
-    carrots: { title: 'Carrots', type: 'Carrots', preview: 'carrotPreview' },
+    lava: { title: 'Liquid lava', type: 'Lava', preview: 'lavaPreview' },
     switches: { title: 'On / off', type: 'Switches', preview: 'switchPreview' },
     glass: { title: 'Glass break', type: 'GlassBreak', preview: 'glassPreview' },
     particles: { title: 'Stardust', type: 'Particles', preview: 'particlePreview' },
@@ -214,14 +212,14 @@
       options.append(group);
       return;
     }
-    if (currentId !== 'particles') return;
+    if (currentId !== 'particles' && currentId !== 'lava') return;
     const palettes = document.createElement('div');
     palettes.className = 'option-group';
     for (const palette of ['rainbow', 'ember', 'moon']) {
       const b = optionButton(
         palette + ' colors',
         '<span class="swatch ' + palette + '"></span>',
-        palette === 'rainbow',
+        palette === toy.palette,
         () => {
           toy.palette = palette;
           palettes
@@ -254,6 +252,7 @@
   }
   function closeToy() {
     clearPointers();
+    toy?.dispose?.();
     toy = null;
     sound.setActive(false);
     show('library');

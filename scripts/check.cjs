@@ -8,7 +8,7 @@ for (const f of fs.readdirSync(path.join(root, 'web')).filter((f) => f.endsWith(
   new vm.Script(read('web/' + f), { filename: f });
 const manifest = read('android/src/main/AndroidManifest.xml');
 assert(!manifest.includes('android.permission.INTERNET'));
-assert(manifest.includes('android:versionCode="3"'));
+assert(manifest.includes('android:versionCode="4"'));
 assert(manifest.includes('android:label="No-No Stress"'));
 const gradient = { addColorStop() {} },
   drawing = new Proxy(
@@ -38,6 +38,7 @@ for (const f of [
   'wood-lathe.js',
   'physics-toys.js',
   'everyday-toys.js',
+  'fluid-toys.js',
 ])
   vm.runInContext(read('web/' + f), box);
 const settings = { density: 3000, gentle: false },
@@ -50,7 +51,7 @@ const particle = new classes.Particles(drawing, 390, 844, settings, sound),
 const initial = radius();
 for (let i = 0; i < 180; i++) particle.update(1 / 60, [{ x: 195, y: 422 }]);
 assert(radius() < initial * 0.4, 'hold gathers');
-assert(particle.glows[0].r >= 5, 'visible white core');
+
 particle.up({}, 0, false);
 assert(
   particle.points.reduce((s, p) => s + Math.hypot(p.vx, p.vy), 0) / 3000 > 10,
@@ -133,6 +134,10 @@ for (const [w, h] of [
   cradle.up({ id: 2 });
   for (let i = 0; i < 120; i++) {
     cradle.update(1 / 60);
+    assert(
+      cradle.angle.every((a, i) => i === 0 || a >= cradle.angle[i - 1] - 1e-6),
+      'cradle bobs never cross'
+    );
     for (const p of cradle.positions())
       assert(Number.isFinite(p.x + p.y) && p.x >= 0 && p.x <= w, 'bounded pendulums');
   }
@@ -152,10 +157,10 @@ assert(wood.chips.length > 0, 'falling chips');
 const zipper = new classes.Zipper(drawing, 390, 844, settings, sound),
   zip = zipper.geometry();
 zipper.down({ id: 1, x: zip.cx, y: zip.y + 20 });
-zipper.move({ id: 1, x: zip.cx, y: zip.top });
+zipper.move({ id: 1, x: zip.cx, y: 20 });
 assert.equal(zipper.count, 1);
 assert(zipper.complete && zipper.flash > 0);
-zipper.move({ id: 1, x: zip.cx, y: zip.top });
+zipper.move({ id: 1, x: zip.cx, y: 20 });
 assert.equal(zipper.count, 1);
 zipper.update(1.2);
 assert(!zipper.complete && zipper.progress === 0 && zipper.flash === 0);
@@ -165,10 +170,54 @@ wrap.down({ x: g.x, y: g.y });
 wrap.down({ x: g.x, y: g.y });
 assert(wrap.cells[0], 'wrap stays popped');
 const glass = new classes.GlassBreak(drawing, 390, 844, settings, sound);
-glass.down({ x: 195, y: 400 });
-for (let i = 0; i < 20; i++) glass.update(1 / 60);
-assert(glass.broken && glass.shards.length === 32);
-assert(glass.age < 1.1, 'slow-motion interval');
+assert.equal(glass.objects.length, 8);
+assert.equal(new Set(glass.objects.map((p) => p.kind)).size, 8, 'eight different vessels');
+let object = glass.objects[0];
+glass.down({ x: object.x, y: object.y - object.h * 0.3 });
+for (let i = 0; i < 25; i++) glass.update(1 / 60);
+assert.equal(glass.objects.filter((p) => p.broken).length, 1);
+assert(glass.shards.length >= 12);
+for (let i = 0; i < 240; i++) glass.update(1 / 60);
+assert.equal(
+  glass.objects.filter((p) => p.broken).length,
+  1,
+  'one broken vessel does not reset the table'
+);
+for (let n = 1; n < 8; n++) {
+  object = glass.objects[n];
+  glass.down({ x: object.x, y: object.y - object.h * 0.3 });
+  for (let i = 0; i < 25; i++) glass.update(1 / 60);
+}
+assert(
+  glass.objects.every((p) => p.broken),
+  'all eight vessels can break'
+);
+for (let i = 0; i < 150; i++) glass.update(1 / 60);
+assert(
+  glass.objects.every((p) => !p.broken),
+  'fresh table after all eight'
+);
+const fluid = new classes.Lava(drawing, 390, 844, settings, sound),
+  beforeFluid = fluid.dye[0].reduce((a, b) => a + b, 0);
+for (let i = 0; i < 30; i++)
+  fluid.update(1 / 60, [{ id: 1, x: 100 + i * 4, y: 430 + Math.sin(i * 0.2) * 50 }]);
+assert(fluid.dye[0].reduce((a, b) => a + b, 0) > beforeFluid, 'touch feeds the liquid');
+assert(
+  fluid.u.some((v) => Math.abs(v) > 0.15),
+  'drag stirs the liquid'
+);
+assert(
+  fluid.u.every(Number.isFinite) && fluid.dye.every((channel) => channel.every(Number.isFinite)),
+  'stable liquid state'
+);
+const cutter = new classes.WoodLathe(drawing, 390, 844, settings, sound),
+  cg = cutter.geometry();
+for (let i = 0; i < 100 && !cutter.pieces.length; i++) cutter.carve({ x: 195, y: cg.cy }, 1 / 60);
+assert(cutter.pieces.length > 0, 'cutting across the axis detaches a piece');
+assert(
+  cutter.shape.some((v, i) => v < cutter.goal[i] - 0.1),
+  'cutting below the guide is allowed'
+);
 const metal = new classes.MetalBalls(drawing, 390, 844, settings, sound);
 metal.setTilt(10, -10);
 for (let i = 0; i < 300; i++) metal.update(1 / 60);
@@ -192,7 +241,7 @@ for (const Class of [
   'GlassBreak',
   'Packaging',
   'Zipper',
-  'Carrots',
+  'Lava',
 ]) {
   const toy = new classes[Class](drawing, 640, 280, settings, sound);
   toy.draw();
@@ -220,6 +269,30 @@ for (const name of [
   const b = fs.readFileSync(path.join(root, 'web/audio', name + '.wav'));
   assert.equal(b.toString('ascii', 0, 4), 'RIFF');
   assert.equal(b.toString('ascii', 8, 12), 'WAVE');
+  let cursor = 12,
+    pcm = null;
+  while (cursor + 8 <= b.length) {
+    const id = b.toString('ascii', cursor, cursor + 4),
+      length = b.readUInt32LE(cursor + 4);
+    if (id === 'data') {
+      pcm = b.subarray(cursor + 8, cursor + 8 + length);
+      break;
+    }
+    cursor += 8 + length + (length % 2);
+  }
+  assert(
+    pcm && pcm.length > 100 && pcm.length < 1048576,
+    'valid SoundPool-sized PCM payload ' + name
+  );
+  let square = 0,
+    peak = 0;
+  for (let i = 0; i + 1 < pcm.length; i += 2) {
+    const value = pcm.readInt16LE(i) / 32768;
+    peak = Math.max(peak, Math.abs(value));
+    square += value * value;
+  }
+  assert(peak > 0.05 && peak < 0.86, 'audible, unclipped peak ' + name);
+  assert(Math.sqrt(square / (pcm.length / 2)) > 0.03, 'no near-silent effect ' + name);
 }
 const calls = [],
   audioBox = {
@@ -258,5 +331,5 @@ assert(
 audio.setActive(false);
 assert.equal(calls.at(-1)[1], false, 'native pauses on inactive');
 console.log(
-  'PASS: offline v3, 1–10 fingers, gather/burst, seven-finger obstacles, slime recovery, stationary multi-drag cradle, carving, zipper, wrap, shards, metal bounds, WAV headers, native audio routing.'
+  'PASS: offline v4, 1–10 fingers, gather/burst, seven-finger obstacles, slime recovery, stationary multi-drag cradle, carving, zipper, wrap, eight glass vessels, fluid flow, metal bounds, WAV headers, native audio routing.'
 );

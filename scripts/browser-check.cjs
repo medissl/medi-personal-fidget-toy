@@ -8,7 +8,7 @@ const { chromium } = require('playwright'),
   const server = createServer();
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = 'http://127.0.0.1:' + server.address().port,
-    out = path.resolve(__dirname, '../test-results/v3');
+    out = path.resolve(__dirname, '../test-results/v4');
   fs.mkdirSync(out, { recursive: true });
   let browser;
   try {
@@ -148,22 +148,33 @@ const { chromium } = require('playwright'),
     for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
       await touch('touchStart', n === 1 ? [{ x: 195, y: 422, id: 1 }] : points.slice(0, n));
       await page.waitForTimeout(n === 1 ? 1800 : 800);
-      if (n === 1) {
-        const pixel = await page
-          .locator('#playground')
-          .evaluate((c) =>
-            Array.from(c.getContext('2d').getImageData(c.width / 2, c.height / 2, 1, 1).data)
-          );
-        assert(
-          pixel.slice(0, 3).every((v) => v >= 235),
-          'meeting point is visibly white'
-        );
-      }
       if ([1, 2, 6, 7, 8, 9, 10].includes(n)) await shot('particles-' + n);
       await touch('touchEnd', []);
       await page.waitForTimeout(160);
     }
     await shot('burst');
+    assert(
+      await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 200;
+        const c = canvas.getContext('2d');
+        const t = new StillToys.Particles(c, 200, 200, { density: 100, gentle: false }, {});
+        t.lastTouches = [{ x: 100, y: 100 }];
+        t.touchCount = 1;
+        for (const p of t.points) {
+          p.x = 30;
+          p.y = 30;
+        }
+        t.draw();
+        const black = Array.from(c.getImageData(100, 100, 1, 1).data)
+          .slice(0, 3)
+          .every((v) => v === 0);
+        t.dispose();
+        return black;
+      }),
+      'no painted white fingertip or background residue'
+    );
+
     await close();
     assert(await page.locator('#bgm').evaluate((e) => e.paused));
     for (const id of [
@@ -172,7 +183,7 @@ const { chromium } = require('playwright'),
       'slime',
       'wrap',
       'zipper',
-      'carrots',
+      'lava',
       'switches',
       'glass',
       'pond',
@@ -194,6 +205,12 @@ const { chromium } = require('playwright'),
         await page.mouse.down();
         for (let x = 100; x < 300; x += 5) await page.mouse.move(x, 430);
         await page.mouse.up();
+      } else if (id === 'lava') {
+        await page.mouse.move(100, 440);
+        await page.mouse.down();
+        for (let i = 0; i < 35; i++)
+          await page.mouse.move(100 + i * 5, 440 + Math.sin(i * 0.14) * 90);
+        await page.mouse.up();
       } else if (id === 'slime') {
         await touch('touchStart', [{ x: 195, y: 422, id: 1 }]);
         await page.waitForTimeout(650);
@@ -204,7 +221,7 @@ const { chromium } = require('playwright'),
       } else if (id === 'zipper') {
         await page.mouse.move(195, 729);
         await page.mouse.down();
-        await page.mouse.move(195, 150, { steps: 35 });
+        await page.mouse.move(195, 20, { steps: 35 });
         await page.mouse.up();
       } else if (id === 'cradle') {
         await touch('touchStart', [
@@ -218,6 +235,15 @@ const { chromium } = require('playwright'),
         await page.waitForTimeout(300);
         await shot('cradle-two-fingers');
         await touch('touchEnd', []);
+      } else if (id === 'sand') {
+        const before = await hash();
+        await page.mouse.move(80, 340);
+        await page.mouse.down();
+        for (let i = 0; i < 25; i++)
+          await page.mouse.move(80 + i * 9, 340 + Math.sin(i * 0.17) * 60);
+        await page.mouse.up();
+        await page.waitForTimeout(100);
+        assert.notEqual(await hash(), before, 'sand rake must leave marks');
       } else if (id === 'dial') {
         await page.mouse.move(305, 422);
         await page.mouse.down();
@@ -225,7 +251,10 @@ const { chromium } = require('playwright'),
           await page.mouse.move(195 + Math.cos(i * 0.3) * 110, 422 + Math.sin(i * 0.3) * 110);
         await page.mouse.up();
       } else {
-        await page.touchscreen.tap(id === 'switches' ? 110 : 195, id === 'glass' ? 330 : 422);
+        await page.touchscreen.tap(
+          id === 'switches' ? 110 : id === 'wrap' ? 164 : id === 'glass' ? 55 : 195,
+          id === 'glass' ? 330 : id === 'wrap' ? 391 : 422
+        );
       }
       await page.waitForTimeout(id === 'glass' ? 400 : 150);
       await shot(id);
@@ -315,7 +344,7 @@ const { chromium } = require('playwright'),
       )
     );
     console.log(
-      'PASS: v3 branding, two columns, 14 toys, centered Play, 5-second fade, reveal-before-activate, swipe suppression, 1–10 touches, real WAV/music playback, native bridge bypass, persistence and scroll restoration.'
+      'PASS: v4 branding, two columns, 14 toys, centered Play, 5-second fade, reveal-before-activate, swipe suppression, 1–10 touches, real WAV/music playback, native bridge bypass, persistence and scroll restoration.'
     );
   } finally {
     if (browser) await browser.close();

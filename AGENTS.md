@@ -12,6 +12,6 @@ Use existing browser/Android APIs and keep all runtime assets bundled. There is 
 
 Each toy owns its simulation. app.js owns navigation, settings, lifecycle, and pointer capture. audio.js routes to Android LocalAudio or browser audio. LocalAudio uses direct uncompressed WAV/MP3 assets. Preserve the application ID and private signing key for updates.
 
-Verify affected multitouch, cancellation, audio interruption, settings persistence, and upgrade behavior. Run npm run check, npm test, and the Android build. Inspect actual rendered screens. Distinguish Chromium checks from physical Android playback, haptics, tilt, system bars, and performance.
+Verify affected multitouch, cancellation, audio interruption, settings persistence, and upgrade behavior. Run npm run check, npm test, the Android build, and npm run check:apk. The APK check must inspect raw ZIP entry names in both headers; normalized filename APIs hid the Windows backslash bug before. Inspect actual rendered screens. Distinguish Chromium checks from physical Android playback, haptics, tilt, system bars, and performance.
 
 Keep keys, SDKs, APKs, logs, and test artifacts out of Git. APKs belong in GitHub Releases. Review the diff, preserve unrelated work, and report observed results.

@@ -34,28 +34,14 @@
         checkpoint: i,
         previousDistance: Infinity,
       }));
-      this.lanes = Array.from({ length: 4 }, (_, color) =>
-        this.points.filter((p) => p.color === color)
-      );
-      this.layers = Array.from({ length: 4 }, () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.ceil(this.w);
-        canvas.height = Math.ceil(this.h);
-        return { canvas, ctx: canvas.getContext('2d') };
-      });
-      this.halo = document.createElement('canvas');
-      this.halo.width = Math.ceil(this.w * 0.125);
-      this.halo.height = Math.ceil(this.h * 0.125);
-      this.haloContext = this.halo.getContext('2d');
-      this.haloContext.setTransform(0.125, 0, 0, 0.125, 0, 0);
+      if (!this.renderer && window.ParticlePoints) this.renderer = new window.ParticlePoints();
       this.charge = 0;
       this.burstTime = 0;
       this.lastTouches = [];
       this.touchCount = 0;
       this.previousCount = 0;
       this.previousContacts = new Map();
-      this.glows = [];
-      this.ctx.fillStyle = '#070b13';
+      this.ctx.fillStyle = '#000000';
       this.ctx.fillRect(0, 0, this.w, this.h);
     }
     resize(w, h) {
@@ -69,7 +55,6 @@
         count = Math.min(10, touches.length);
       this.time += dt;
       this.touchCount = count;
-      this.glows = [];
       touches = touches.slice(0, 10);
       const contacts = touches.map((p, i) => {
         const id = p.id ?? i,
@@ -251,96 +236,35 @@
         p.x = ((p.x % this.w) + this.w) % this.w;
         p.y = ((p.y % this.h) + this.h) % this.h;
       }
-      if (count && count !== 7)
-        this.glows = contacts.map((q) => ({
-          x: q.x,
-          y: q.y,
-          r: Math.min(7, 5 + Math.sqrt(q.near) * 0.1),
-        }));
       this.previousCount = count;
       this.groupKey = groupKey;
     }
     draw() {
       const c = this.ctx,
-        h = this.haloContext,
         colors = palettes[this.palette];
-      c.globalCompositeOperation = 'source-over';
       c.globalAlpha = 1;
-      c.fillStyle = '#020307';
+      c.globalCompositeOperation = 'source-over';
+      c.fillStyle = '#000000';
       c.fillRect(0, 0, this.w, this.h);
-      h.clearRect(0, 0, this.w, this.h);
+      if (this.renderer?.draw(c, this.w, this.h, this.points, colors)) return;
       c.globalCompositeOperation = 'lighter';
       for (let lane = 0; lane < 4; lane++) {
-        const layer = this.layers[lane],
-          l = layer.ctx;
-        l.globalCompositeOperation = 'destination-out';
-        l.globalAlpha = 1;
-        l.fillStyle = this.settings.gentle ? '#00000070' : '#00000020';
-        l.fillRect(0, 0, this.w, this.h);
-        l.globalCompositeOperation = 'source-over';
-        l.strokeStyle = colors[lane];
-        l.lineWidth = 0.7;
-        l.globalAlpha = 0.72;
-        l.beginPath();
-        for (const p of this.lanes[lane]) {
-          const dx = Math.max(-12, Math.min(12, p.vx * 1.5)),
-            dy = Math.max(-12, Math.min(12, p.vy * 1.5));
-          l.moveTo(p.x - dx, p.y - dy);
-          l.lineTo(p.x, p.y);
-        }
-        l.stroke();
-        l.fillStyle = colors[lane];
-        l.globalAlpha = 0.86;
-        l.beginPath();
-        for (const p of this.lanes[lane]) {
-          const radius = 0.35 + (p.i % 5) * 0.1;
-          l.moveTo(p.x + radius, p.y);
-          l.arc(p.x, p.y, radius, 0, TAU);
-        }
-        l.fill();
-        l.globalAlpha = 1;
-        c.globalAlpha = 0.87;
-        c.drawImage(layer.canvas, 0, 0, this.w, this.h);
-        h.globalCompositeOperation = 'lighter';
-        h.globalAlpha = 0.6;
-        h.drawImage(layer.canvas, 0, 0, this.w, this.h);
-      }
-      c.save();
-      c.globalAlpha = 0.6;
-      c.drawImage(this.halo, 0, 0, this.w, this.h);
-      c.restore();
-      c.globalAlpha = 0.28;
-      c.fillStyle = '#e6fbff';
-      c.beginPath();
-      for (const p of this.points)
-        if (p.i % 29 === 0) {
-          c.moveTo(p.x + 0.36, p.y);
-          c.arc(p.x, p.y, 0.36, 0, TAU);
-        }
-      c.fill();
-      c.globalAlpha = 1;
-      c.globalCompositeOperation = 'lighter';
-      for (const point of this.glows) {
-        const r = point.r,
-          g = c.createRadialGradient(point.x, point.y, 0, point.x, point.y, r * 3);
-        g.addColorStop(0, '#ffffff');
-        g.addColorStop(0.25, '#fffffff0');
-        g.addColorStop(0.6, '#c7e9ff44');
-        g.addColorStop(1, '#a6daff00');
-        c.fillStyle = g;
+        c.fillStyle = colors[lane];
+        c.globalAlpha = 0.78;
         c.beginPath();
-        c.arc(point.x, point.y, r * 3, 0, TAU);
+        for (const p of this.points)
+          if (p.color === lane) {
+            const radius = 0.6 + (p.i % 5) * 0.12;
+            c.moveTo(p.x + radius, p.y);
+            c.arc(p.x, p.y, radius, 0, TAU);
+          }
         c.fill();
       }
+      c.globalAlpha = 1;
       c.globalCompositeOperation = 'source-over';
-      if (this.touchCount === 7) {
-        c.fillStyle = '#020307';
-        for (const p of this.lastTouches) {
-          c.beginPath();
-          c.arc(p.x, p.y, 28, 0, TAU);
-          c.fill();
-        }
-      }
+    }
+    dispose() {
+      this.renderer?.dispose();
     }
     down() {
       this.sound.pulse(1);
@@ -350,7 +274,6 @@
       if (remaining) return;
       if (cancelled) {
         this.charge = 0;
-        this.glows = [];
         return;
       }
       const center = this.center || { x: this.w / 2, y: this.h / 2 },
@@ -378,7 +301,6 @@
       }
       this.burstTime = 2.2;
       this.charge = 0;
-      this.glows = [];
       this.sound.pulse(2);
     }
   }
@@ -386,6 +308,7 @@
     const toy = new Particles(c, w, h, { density: 1800, gentle: false }, {});
     for (let i = 0; i < 70; i++) toy.update(1 / 60, [{ x: w * 0.5, y: h * 0.59 }]);
     toy.draw();
+    toy.dispose();
   }
   window.StillToys = { Particles, particlePreview };
 })();
