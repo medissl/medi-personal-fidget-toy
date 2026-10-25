@@ -15,7 +15,7 @@ No accounts, ads, analytics, backend, or online asset requests. The APK bundles 
 
 ## Install on your Android phone
 
-Transfer the generated `Still.apk` to your phone and open it. Android may ask you to allow installation from the app you used to open the APK. The build supports Android 8.0 and later with an up-to-date Android System WebView.
+[Download Still.apk](https://github.com/medissl/medi-personal-fidget-toy/releases/download/v0.1.0/Still.apk) directly on your phone, then open the downloaded file. Android may ask you to allow installation from the browser you used to download it. The build supports Android 8.0 and later with an up-to-date Android System WebView.
 
 This first APK is locally signed for personal installation. Keep `.local/still-personal.p12` privately if you want future builds to install as updates. It is excluded from Git. A key regenerated on another machine will not match an existing installation.
 
