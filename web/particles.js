@@ -1,31 +1,60 @@
 (() => {
   'use strict';
   const TAU = Math.PI * 2;
-  const colors = {
-    rainbow: Array.from({ length: 48 }, (_, i) => 'hsl(' + i * 7.5 + ' 100% 60%)'),
-    ember: Array.from({ length: 48 }, (_, i) => 'hsl(' + (5 + i * 1.05) + ' 100% 64%)'),
-    moon: Array.from({ length: 48 }, (_, i) => 'hsl(' + (165 + i * 1.3) + ' 85% 75%)'),
+  const palettes = {
+    rainbow: ['#267dff', '#ff3b68', '#46dfce', '#ffd966'],
+    ember: ['#ff543e', '#ff9147', '#ffd66a', '#f76f88'],
+    moon: ['#4bc7df', '#70a8ff', '#a9d7ff', '#8ce8dc'],
   };
+  const average = (points) => ({
+    x: points.reduce((s, p) => s + p.x, 0) / points.length,
+    y: points.reduce((s, p) => s + p.y, 0) / points.length,
+  });
   class Particles {
     constructor(ctx, w, h, settings, sound) {
       Object.assign(this, { ctx, w, h, settings, sound });
       this.palette = 'rainbow';
-      this.mode = 'flow';
       this.time = 0;
-      this.charge = 0;
-      this.center = { x: w / 2, y: h / 2 };
       this.reset();
     }
     reset() {
       this.points = Array.from({ length: this.settings.density }, (_, i) => ({
         x: Math.random() * this.w,
         y: Math.random() * this.h,
-        vx: (Math.random() - 0.5) * 2.8,
-        vy: (Math.random() - 0.5) * 2.8,
-        color: i % 48,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+        u: (i + 0.5) / this.settings.density,
+        i,
+        color: i % 4,
+        band:
+          Math.sqrt(-2 * Math.log(0.001 + ((i * 0.754877666) % 0.999))) *
+          Math.cos(i * 2.399963) *
+          0.65,
+        drift: i % 9 === 0,
+        checkpoint: i,
+        previousDistance: Infinity,
       }));
+      this.lanes = Array.from({ length: 4 }, (_, color) =>
+        this.points.filter((p) => p.color === color)
+      );
+      this.layers = Array.from({ length: 4 }, () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(this.w);
+        canvas.height = Math.ceil(this.h);
+        return { canvas, ctx: canvas.getContext('2d') };
+      });
+      this.halo = document.createElement('canvas');
+      this.halo.width = Math.ceil(this.w * 0.125);
+      this.halo.height = Math.ceil(this.h * 0.125);
+      this.haloContext = this.halo.getContext('2d');
+      this.haloContext.setTransform(0.125, 0, 0, 0.125, 0, 0);
       this.charge = 0;
       this.burstTime = 0;
+      this.lastTouches = [];
+      this.touchCount = 0;
+      this.previousCount = 0;
+      this.previousContacts = new Map();
+      this.glows = [];
       this.ctx.fillStyle = '#070b13';
       this.ctx.fillRect(0, 0, this.w, this.h);
     }
@@ -36,174 +65,327 @@
     }
     update(dt, touches) {
       if (this.points.length !== this.settings.density) this.reset();
-      const step = Math.min(dt * 60, 2) * (this.settings.gentle ? 0.48 : 1),
-        t = (this.time += dt);
-      if (touches.length) {
-        this.center = {
-          x: touches.reduce((s, p) => s + p.x, 0) / touches.length,
-          y: touches.reduce((s, p) => s + p.y, 0) / touches.length,
+      const step = Math.min(2, dt * 60) * (this.settings.gentle ? 0.55 : 1),
+        count = Math.min(10, touches.length);
+      this.time += dt;
+      this.touchCount = count;
+      this.glows = [];
+      touches = touches.slice(0, 10);
+      const contacts = touches.map((p, i) => {
+        const id = p.id ?? i,
+          old = this.previousContacts?.get(id),
+          scale = 1 / Math.max(0.001, dt);
+        return {
+          ...p,
+          id,
+          vx: old ? Math.max(-700, Math.min(700, (p.x - old.x) * scale)) : 0,
+          vy: old ? Math.max(-700, Math.min(700, (p.y - old.y) * scale)) : 0,
+          near: 0,
         };
+      });
+      this.previousContacts = new Map(contacts.map((p) => [p.id, { x: p.x, y: p.y }]));
+      let center = { x: this.w / 2, y: this.h / 2 };
+      if (count) {
+        center = average(contacts);
+        this.center = center;
+        this.lastTouches = contacts.map((p) => ({ x: p.x, y: p.y }));
         this.charge = Math.min(1.7, this.charge + dt * 0.7);
       }
-      this.burstTime = Math.max(0, this.burstTime - dt);
-      const radius =
-        touches.length === 2
-          ? Math.max(16, Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y) * 0.5)
-          : 70;
-      for (let i = 0; i < this.points.length; i++) {
-        const p = this.points[i];
-        let ax = 0,
-          ay = 0,
-          drag = 0.992;
-        if (touches.length) {
-          const target = touches.length === 4 ? touches[i % 4] : this.center;
-          const dx = target.x - p.x,
-            dy = target.y - p.y,
-            d = Math.max(0.1, Math.hypot(dx, dy)),
-            nx = dx / d,
-            ny = dy / d;
-          if (touches.length === 1 || touches.length === 4) {
-            const force = Math.min(1.3, d * 0.018);
-            ax = nx * force;
-            ay = ny * force;
-            drag = d < 28 ? 0.76 : 0.975;
-            if (this.mode === 'gravity') {
-              ax *= 1.3;
-              ay *= 1.3;
-            }
-          } else if (touches.length === 2) {
-            const pull = Math.max(-0.9, Math.min(1, (d - radius) * 0.018));
-            ax = nx * pull - ny * 0.63;
-            ay = ny * pull + nx * 0.63;
-            drag = 0.971;
-          } else if (touches.length === 3) {
-            const petals = radius + 45 * Math.sin(Math.atan2(dy, dx) * 3 + t);
-            const pull = Math.max(-0.3, Math.min(0.8, (d - petals) * 0.01));
-            ax = nx * pull - ny * 0.85;
-            ay = ny * pull + nx * 0.85;
-            drag = 0.97;
-          } else {
-            const well = touches[i % touches.length],
-              wx = p.x - well.x,
-              wy = p.y - well.y,
-              wd = Math.max(2, Math.hypot(wx, wy));
-            ax = (wx / wd) * 0.9;
-            ay = (wy / wd) * 0.9;
-          }
-          if (this.mode === 'wave') {
-            ax += Math.sin(p.y * 0.022 + t * 3 + i * 0.001) * 0.35;
-            ay += Math.cos(p.x * 0.025 + t * 2) * 0.35;
-          }
-          if (this.mode === 'ribbons' && touches.length === 2) {
-            const f = (i % 127) / 126,
-              tx = touches[0].x * (1 - f) + touches[1].x * f,
-              ty = touches[0].y * (1 - f) + touches[1].y * f + Math.sin(f * TAU * 3 + t * 3) * 45;
-            ax = (tx - p.x) * 0.015;
-            ay = (ty - p.y) * 0.015;
-            drag = 0.92;
-          }
-          if (this.mode === 'electric') {
-            ax += Math.sin(i * 12.4 + Math.floor(t * 18)) * 0.8;
-            ay += Math.cos(i * 7.3 + Math.floor(t * 18)) * 0.8;
-          }
-        } else if (!this.burstTime) {
-          const a = Math.sin(p.y * 0.008 + t * 0.35) * 2 + Math.cos(p.x * 0.007 - t * 0.25) * 2;
-          ax = Math.cos(a) * 0.018;
-          ay = Math.sin(a) * 0.018;
-          if (this.mode === 'wave') {
-            ax = Math.sin(p.y * 0.015 + t) * 0.06;
-            ay = Math.cos(p.x * 0.012 + t) * 0.05;
-          }
-          if (this.mode === 'gravity') {
-            ax = (this.w / 2 - p.x) * 0.00005;
-            ay = (this.h / 2 - p.y) * 0.00005;
-          }
+      // Nearby contacts form one flow; separated clusters form separate swarms.
+      // Grouping follows proximity, so moving fingers can split or join the currents.
+      let groups = contacts.length ? [contacts] : [];
+      if (count >= 4 && count !== 7) {
+        const nearest = contacts
+          .map((q, i) =>
+            Math.min(
+              ...contacts.filter((_, j) => j !== i).map((p) => Math.hypot(p.x - q.x, p.y - q.y))
+            )
+          )
+          .sort((a, b) => a - b);
+        const threshold = Math.max(
+            32,
+            Math.min(105, nearest[Math.floor(nearest.length / 2)] * 1.6)
+          ),
+          remaining = new Set(contacts);
+        groups = [];
+        while (remaining.size) {
+          const group = [remaining.values().next().value];
+          remaining.delete(group[0]);
+          for (let i = 0; i < group.length; i++)
+            for (const q of remaining)
+              if (Math.hypot(q.x - group[i].x, q.y - group[i].y) < threshold) {
+                group.push(q);
+                remaining.delete(q);
+              }
+          groups.push(group);
         }
-        p.vx = (p.vx + ax * step) * Math.pow(drag, step);
-        p.vy = (p.vy + ay * step) * Math.pow(drag, step);
+      }
+      const groupKey = groups.map((g) => g.map((q) => q.id).join(',')).join(';'),
+        changed = groupKey !== this.groupKey;
+      const fields = groups.map((points) => {
+        let distance = 0,
+          pairs = 0;
+        for (let i = 0; i < points.length; i++)
+          for (let j = i + 1; j < points.length; j++) {
+            distance += Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y);
+            pairs++;
+          }
+        const span = distance / Math.max(1, pairs);
+        const mean = average(points);
+        let xx = 0,
+          xy = 0,
+          yy = 0;
+        for (const q of points) {
+          const x = q.x - mean.x,
+            y = q.y - mean.y;
+          xx += x * x;
+          xy += x * y;
+          yy += y * y;
+        }
+        const axis = 0.5 * Math.atan2(2 * xy, xx - yy);
+        return {
+          points,
+          span,
+          axis,
+          energy: points.length === 1 ? 5 : Math.max(0.25, Math.min(12, span * span * 0.00025)),
+        };
+      });
+      this.burstTime = Math.max(0, this.burstTime - dt);
+      for (const p of this.points) {
+        if (count === 7) {
+          const desiredX = 2.3 + Math.sin(p.y * 0.007 + this.time * 0.17) * 0.3;
+          p.vx += (desiredX - p.vx) * 0.045 * step;
+          p.vy += (Math.sin(p.x * 0.008 - this.time * 0.2) * 0.65 - p.vy) * 0.045 * step;
+          for (const q of contacts) {
+            const dx = p.x - q.x,
+              dy = p.y - q.y,
+              d = Math.max(0.01, Math.hypot(dx, dy)),
+              f = Math.max(0, 1 - d / 75);
+            p.vx += ((dx / d) * f * 0.21 - (dy / d) * f * 0.08) * step;
+            p.vy += ((dy / d) * f * 0.21 + (dx / d) * f * 0.08) * step;
+          }
+        } else if (count) {
+          p.drawColor = p.color;
+          const field = fields[Math.floor(p.i / 4) % fields.length],
+            route = field.points,
+            routeCount = route.length;
+          if (changed) {
+            p.checkpoint = p.i % routeCount;
+            p.previousDistance = Infinity;
+          }
+          let goal = route[p.checkpoint % routeCount],
+            dx = goal.x - p.x,
+            dy = goal.y - p.y,
+            d = Math.hypot(dx, dy);
+          // Fingers are moving checkpoints, not vertices of a prescribed orbit.
+          // Keep momentum through each checkpoint; a close fly-by advances too.
+          const reach = Math.max(7, Math.min(27, field.span * 0.12)),
+            passed =
+              d > p.previousDistance + 0.2 &&
+              p.previousDistance < Math.max(reach, field.span * 0.32);
+          if (routeCount > 1 && (d < reach || passed)) {
+            p.checkpoint = (p.checkpoint + (p.color % 2 ? routeCount - 1 : 1)) % routeCount;
+            goal = route[p.checkpoint];
+            dx = goal.x - p.x;
+            dy = goal.y - p.y;
+            d = Math.hypot(dx, dy);
+            p.previousDistance = Infinity;
+          } else p.previousDistance = d;
+          const orientation = field.axis + (p.color * Math.PI) / 4,
+            cos = Math.cos(orientation),
+            sin = Math.sin(orientation),
+            u = dx * cos + dy * sin,
+            v = -dx * sin + dy * cos;
+          const stiffness = 0.0016,
+            squeeze = routeCount === 1 ? 4 : 2.6,
+            fu = u * stiffness,
+            fv = v * stiffness * squeeze;
+          p.vx += (fu * cos - fv * sin) * step;
+          p.vy += (fu * sin + fv * cos) * step;
+          const curl = (p.color % 2 ? 1 : -1) * 0.018;
+          p.vx += ((-dy / (d + 25)) * curl + goal.vx * 0.00005) * step;
+          p.vy += ((dx / (d + 25)) * curl + goal.vy * 0.00005) * step;
+          const energy = (p.vx * p.vx + p.vy * p.vy + stiffness * (u * u + v * v * squeeze)) * 0.5,
+            targetEnergy = field.energy * Math.max(0.35, 1 + p.band * 0.22) * (p.drift ? 1.8 : 1);
+          const feedback = Math.max(-0.035, Math.min(0.018, (targetEnergy - energy) * 0.004));
+          const damping = Math.pow(0.998 + feedback, step);
+          p.vx *= damping;
+          p.vy *= damping;
+          for (const q of contacts) if ((p.x - q.x) ** 2 + (p.y - q.y) ** 2 < 20 * 20) q.near++;
+        } else if (!this.burstTime) {
+          const a =
+            Math.sin(p.y * 0.007 + this.time * 0.2) + Math.cos(p.x * 0.009 - this.time * 0.15);
+          p.vx += Math.cos(a) * 0.014 * step;
+          p.vy += Math.sin(a) * 0.014 * step;
+          p.vx *= Math.pow(0.996, step);
+          p.vy *= Math.pow(0.996, step);
+        } else {
+          p.vx *= Math.pow(0.99, step);
+          p.vy *= Math.pow(0.99, step);
+        }
         const speed = Math.hypot(p.vx, p.vy),
-          limit = this.burstTime ? 30 : 19;
+          limit = this.burstTime ? 28 : 16;
         if (speed > limit) {
           p.vx *= limit / speed;
           p.vy *= limit / speed;
         }
         p.x += p.vx * step;
         p.y += p.vy * step;
-        if (p.x < 0) p.x += this.w;
-        if (p.x >= this.w) p.x -= this.w;
-        if (p.y < 0) p.y += this.h;
-        if (p.y >= this.h) p.y -= this.h;
+        if (count === 7)
+          for (const q of contacts) {
+            const dx = p.x - q.x,
+              dy = p.y - q.y,
+              d = Math.hypot(dx, dy);
+            if (d < 28) {
+              const nx = d < 0.01 ? 1 : dx / d,
+                ny = d < 0.01 ? 0 : dy / d;
+              p.x = q.x + nx * 28;
+              p.y = q.y + ny * 28;
+              const normal = p.vx * nx + p.vy * ny;
+              if (normal < 0) {
+                p.vx -= normal * nx;
+                p.vy -= normal * ny;
+              }
+            }
+          }
+        p.x = ((p.x % this.w) + this.w) % this.w;
+        p.y = ((p.y % this.h) + this.h) % this.h;
       }
+      if (count && count !== 7)
+        this.glows = contacts.map((q) => ({
+          x: q.x,
+          y: q.y,
+          r: Math.min(7, 5 + Math.sqrt(q.near) * 0.1),
+        }));
+      this.previousCount = count;
+      this.groupKey = groupKey;
     }
     draw() {
-      const c = this.ctx;
+      const c = this.ctx,
+        h = this.haloContext,
+        colors = palettes[this.palette];
       c.globalCompositeOperation = 'source-over';
       c.globalAlpha = 1;
-      c.fillStyle = this.settings.gentle ? '#070b1370' : '#070b134a';
+      c.fillStyle = '#020307';
       c.fillRect(0, 0, this.w, this.h);
-      c.globalCompositeOperation = 'source-over';
-      c.globalAlpha = 0.88;
-      const palette = colors[this.palette],
-        trail = this.mode === 'ribbons' ? 2.8 : this.mode === 'electric' ? 2 : 0.65;
-      for (let k = 0; k < 48; k++) {
-        c.strokeStyle = palette[k];
-        c.fillStyle = palette[k];
-        c.lineWidth = this.mode === 'electric' ? 0.75 : 0.9;
-        c.beginPath();
-        for (let i = k; i < this.points.length; i += 48) {
-          const p = this.points[i],
-            tx = Math.max(-16, Math.min(16, p.vx * trail)),
-            ty = Math.max(-16, Math.min(16, p.vy * trail));
-          c.moveTo(p.x - tx, p.y - ty);
-          c.lineTo(p.x, p.y);
+      h.clearRect(0, 0, this.w, this.h);
+      c.globalCompositeOperation = 'lighter';
+      for (let lane = 0; lane < 4; lane++) {
+        const layer = this.layers[lane],
+          l = layer.ctx;
+        l.globalCompositeOperation = 'destination-out';
+        l.globalAlpha = 1;
+        l.fillStyle = this.settings.gentle ? '#00000070' : '#00000020';
+        l.fillRect(0, 0, this.w, this.h);
+        l.globalCompositeOperation = 'source-over';
+        l.strokeStyle = colors[lane];
+        l.lineWidth = 0.7;
+        l.globalAlpha = 0.72;
+        l.beginPath();
+        for (const p of this.lanes[lane]) {
+          const dx = Math.max(-12, Math.min(12, p.vx * 1.5)),
+            dy = Math.max(-12, Math.min(12, p.vy * 1.5));
+          l.moveTo(p.x - dx, p.y - dy);
+          l.lineTo(p.x, p.y);
         }
-        c.stroke();
+        l.stroke();
+        l.fillStyle = colors[lane];
+        l.globalAlpha = 0.86;
+        l.beginPath();
+        for (const p of this.lanes[lane]) {
+          const radius = 0.35 + (p.i % 5) * 0.1;
+          l.moveTo(p.x + radius, p.y);
+          l.arc(p.x, p.y, radius, 0, TAU);
+        }
+        l.fill();
+        l.globalAlpha = 1;
+        c.globalAlpha = 0.87;
+        c.drawImage(layer.canvas, 0, 0, this.w, this.h);
+        h.globalCompositeOperation = 'lighter';
+        h.globalAlpha = 0.6;
+        h.drawImage(layer.canvas, 0, 0, this.w, this.h);
       }
+      c.save();
+      c.globalAlpha = 0.6;
+      c.drawImage(this.halo, 0, 0, this.w, this.h);
+      c.restore();
+      c.globalAlpha = 0.28;
+      c.fillStyle = '#e6fbff';
+      c.beginPath();
+      for (const p of this.points)
+        if (p.i % 29 === 0) {
+          c.moveTo(p.x + 0.36, p.y);
+          c.arc(p.x, p.y, 0.36, 0, TAU);
+        }
+      c.fill();
       c.globalAlpha = 1;
+      c.globalCompositeOperation = 'lighter';
+      for (const point of this.glows) {
+        const r = point.r,
+          g = c.createRadialGradient(point.x, point.y, 0, point.x, point.y, r * 3);
+        g.addColorStop(0, '#ffffff');
+        g.addColorStop(0.25, '#fffffff0');
+        g.addColorStop(0.6, '#c7e9ff44');
+        g.addColorStop(1, '#a6daff00');
+        c.fillStyle = g;
+        c.beginPath();
+        c.arc(point.x, point.y, r * 3, 0, TAU);
+        c.fill();
+      }
       c.globalCompositeOperation = 'source-over';
+      if (this.touchCount === 7) {
+        c.fillStyle = '#020307';
+        for (const p of this.lastTouches) {
+          c.beginPath();
+          c.arc(p.x, p.y, 28, 0, TAU);
+          c.fill();
+        }
+      }
     }
-    down(p) {
-      this.center = { x: p.x, y: p.y };
+    down() {
       this.sound.pulse(1);
+      this.sound.space?.(Math.max(1, this.touchCount + 1));
     }
     up(p, remaining = 0, cancelled = false) {
-      if (remaining || cancelled) return;
-      const energy = 5 + Math.min(1.7, this.charge) * 12,
-        cx = this.center.x,
-        cy = this.center.y;
+      if (remaining) return;
+      if (cancelled) {
+        this.charge = 0;
+        this.glows = [];
+        return;
+      }
+      const center = this.center || { x: this.w / 2, y: this.h / 2 },
+        energy = 7 + this.charge * 9,
+        origins = this.lastTouches.length ? this.lastTouches : [center];
       for (const q of this.points) {
-        let dx = q.x - cx,
-          dy = q.y - cy,
+        const origin =
+          origins.reduce(
+            (best, p) =>
+              Math.hypot(q.x - p.x, q.y - p.y) < Math.hypot(q.x - best.x, q.y - best.y) ? p : best,
+            origins[0]
+          ) || center;
+        let dx = q.x - origin.x,
+          dy = q.y - origin.y,
           d = Math.hypot(dx, dy);
-        if (d < 2) {
-          const a = Math.random() * TAU;
+        if (d < 1) {
+          const a = q.u * TAU * 23;
           dx = Math.cos(a);
           dy = Math.sin(a);
           d = 1;
         }
-        const speed = energy * (0.4 + Math.random() * 0.65);
+        const speed = energy * (0.6 + (q.i % 17) / 34);
         q.vx = (dx / d) * speed;
         q.vy = (dy / d) * speed;
       }
-      this.burstTime = 2.3;
+      this.burstTime = 2.2;
       this.charge = 0;
+      this.glows = [];
       this.sound.pulse(2);
     }
   }
-  function particlePreview(c, w, h, time = 0, background = '#14202a', intensity = 1) {
-    c.fillStyle = background;
-    c.fillRect(0, 0, w, h);
-    c.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 2200; i++) {
-      const a = i * 2.399963 + time * 0.28,
-        r = Math.sqrt((i % 503) / 503) * Math.min(w, h) * 0.44;
-      const twist = a + r * 0.022;
-      c.globalAlpha = (0.45 + (i % 5) * 0.12) * intensity;
-      c.fillStyle = colors.rainbow[i % 48];
-      c.fillRect(w / 2 + Math.cos(twist) * r, h * 0.52 + Math.sin(twist) * r * 0.8, 1.3, 1.3);
-    }
-    c.globalAlpha = 1;
-    c.globalCompositeOperation = 'source-over';
+  function particlePreview(c, w, h) {
+    const toy = new Particles(c, w, h, { density: 1800, gentle: false }, {});
+    for (let i = 0; i < 70; i++) toy.update(1 / 60, [{ x: w * 0.5, y: h * 0.59 }]);
+    toy.draw();
   }
   window.StillToys = { Particles, particlePreview };
 })();

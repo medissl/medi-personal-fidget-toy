@@ -1,8 +1,18 @@
 package app.still.personal;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.content.ActivityNotFoundException;
+import android.net.Uri;
+import android.widget.Toast;
 import android.os.Bundle;
 import android.os.Build;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.media.AudioManager;
+import org.json.JSONObject;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -20,18 +30,29 @@ import java.io.IOException;
 import java.util.Collections;
 
 /** An offline shell. Only immutable, bundled assets can access the haptic bridge. */
-public final class MainActivity extends Activity {
+public final class MainActivity extends Activity implements SensorEventListener {
     private static final String HOST = "appassets.androidplatform.net";
     private WebView web;
     private Vibrator vibrator;
     private long lastPulse;
     private boolean immersive;
+    private LocalAudio audio;
+    private SensorManager sensors;
+    private Sensor tiltSensor;
+    private boolean motionEnabled, resumed;
+    private long lastTilt;
+    private float tiltX, tiltY;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
         web = new WebView(this);
-        web.setBackgroundColor(0xff14202a);
+        web.setBackgroundColor(0xfff4e9d3);
+        audio = new LocalAudio(this, message -> web.post(() -> web.evaluateJavascript(
+            "window.StillApp && StillApp.audioError(" + JSONObject.quote(message) + ")", null)));
+        sensors = (SensorManager)getSystemService(SENSOR_SERVICE);
+        if(sensors != null){tiltSensor=sensors.getDefaultSensor(Sensor.TYPE_GRAVITY);if(tiltSensor == null)tiltSensor=sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);}
         web.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -74,6 +95,9 @@ public final class MainActivity extends Activity {
         if (path.endsWith(".svg")) return "image/svg+xml";
         if (path.endsWith(".mp3")) return "audio/mpeg";
         if (path.endsWith(".ogg")) return "audio/ogg";
+        if (path.endsWith(".png")) return "image/png";
+        if (path.endsWith(".ttf")) return "font/ttf";
+        if (path.endsWith(".wav")) return "audio/wav";
         return null;
     }
 
@@ -98,11 +122,44 @@ public final class MainActivity extends Activity {
         runOnUiThread(() -> { immersive = enabled; applyImmersive(); });
     }
 
+    @JavascriptInterface public void openGitHub() {
+        runOnUiThread(() -> {
+            try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/medissl"))); }
+            catch(ActivityNotFoundException unavailable) { Toast.makeText(this,"No browser is available.",Toast.LENGTH_SHORT).show(); }
+        });
+    }
+
+    @JavascriptInterface public void configureAudio(boolean active, boolean effects, boolean music,
+            double master, double sfx, double bgm, String track) {
+        runOnUiThread(() -> audio.configure(active,effects,music,master,sfx,bgm,track));
+    }
+    @JavascriptInterface public void playSound(String name,double volume,double rate) {
+        runOnUiThread(() -> audio.play(name,volume,rate));
+    }
+    @JavascriptInterface public void setMotionEnabled(boolean value) {
+        runOnUiThread(() -> {motionEnabled=value;updateMotion();});
+    }
+    private void updateMotion(){if(sensors == null)return;sensors.unregisterListener(this);if(resumed && motionEnabled && tiltSensor != null)sensors.registerListener(this,tiltSensor,SensorManager.SENSOR_DELAY_GAME);}
+    @Override public void onSensorChanged(SensorEvent event){
+        if(!resumed || !motionEnabled)return;
+        float alpha=event.sensor.getType()==Sensor.TYPE_ACCELEROMETER?.15f:1f;
+        tiltX+=alpha*(event.values[0]-tiltX);tiltY+=alpha*(event.values[1]-tiltY);
+        long now=SystemClock.elapsedRealtime();if(now-lastTilt<50)return;lastTilt=now;
+        float x=-tiltX,y=tiltY;int rotation=getWindowManager().getDefaultDisplay().getRotation();
+        if(rotation==1){x=tiltY;y=tiltX;}else if(rotation==2){x=tiltX;y=-tiltY;}else if(rotation==3){x=-tiltY;y=-tiltX;}
+        if(Float.isNaN(x)||Float.isNaN(y)||Float.isInfinite(x)||Float.isInfinite(y))return;
+        web.evaluateJavascript("window.StillApp && StillApp.setTilt("+Math.max(-10,Math.min(10,x))+","+Math.max(-10,Math.min(10,y))+")",null);
+    }
+    @Override public void onAccuracyChanged(Sensor sensor,int accuracy) {}
+
     private void applyImmersive() {
         if (Build.VERSION.SDK_INT >= 30) {
             getWindow().setDecorFitsSystemWindows(!immersive);
             WindowInsetsController controller = getWindow().getInsetsController();
             if (controller != null) {
+                controller.setSystemBarsAppearance(immersive ? 0 :
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
                 if (immersive) controller.hide(WindowInsets.Type.systemBars());
                 else controller.show(WindowInsets.Type.systemBars());
@@ -112,7 +169,7 @@ public final class MainActivity extends Activity {
                 ? View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN
                   | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                   | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                : View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+                : View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         }
     }
 
@@ -128,6 +185,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        resumed=false;updateMotion();audio.setForeground(false);
         web.evaluateJavascript("window.StillApp && StillApp.setActive(false)", null);
         web.onPause();
         web.pauseTimers();
@@ -137,6 +195,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        resumed=true;updateMotion();if(audio != null)audio.setForeground(true);
         if (web != null) {
             web.onResume();
             web.resumeTimers();
@@ -145,6 +204,8 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        if(sensors != null)sensors.unregisterListener(this);
+        audio.release();
         web.removeJavascriptInterface("StillNative");
         web.destroy();
         super.onDestroy();

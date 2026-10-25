@@ -1,15 +1,17 @@
-# Medi Personal Fidget Toy
+# No-No Stress
 
-Read DESIGN.md before modifying screens, toy motion, touch feedback, or audio.
+Read DESIGN.md before changing screens, toy motion, touch feedback, or audio. User corrections take priority over this document.
 
-This is a personal offline Android toy collection. Preserve the flow: home → Play → vertical collection → full-screen toy → back to the collection at the previous scroll position.
+This is a personal offline Android collection: home → Play → two-column vertical selection → full-screen toy → back at the previous scroll position.
 
-Keep the menu to the app name and icon actions, selection to two columns with names inside boxes, and gameplay to the full canvas with fading icon controls. Treat tap-only reveal and suppression of release bursts on cancellation as regression requirements.
+The home has the STRESS prohibition emblem, the full name No-No Stress, GitHub on the left, Play in the center, and Options on the right. No cat or random-play action.
 
-Use browser and Android standard APIs first. Add a dependency only when an observed requirement cannot be met simply. Each toy owns its simulation; app.js owns navigation, settings, lifecycle, and pointer capture. Audio and haptics go through audio.js.
+Gameplay has only Back and Options at the top. Controls and relevant bottom options fade after five seconds. The first hidden top tap only reveals; a second deliberate tap activates. Swipes and holds do not reveal. Cancellation, resize, settings, backgrounding, and exit must not produce a particle burst.
 
-Keep all runtime assets bundled. The Android app has no Internet permission. Its JavaScript bridge must remain restricted to immutable bundled content. Keep signing keys, build tools, APKs, and local machine paths out of Git.
+Use existing browser/Android APIs and keep all runtime assets bundled. There is no Internet permission, backend, account, advertising, or analytics. Only immutable bundled content can reach the JavaScript bridge. The GitHub action opens the fixed profile in an external browser.
 
-When changing interactions, test pointer cancellation, multitouch, reset, pause/resume, closing a toy, backgrounding, and settings persistence. Run the browser check and compile the Android wrapper for relevant changes. Hardware haptics, audio feel, battery use, and Android lifecycle need device verification; distinguish those from browser checks.
+Each toy owns its simulation. app.js owns navigation, settings, lifecycle, and pointer capture. audio.js routes to Android LocalAudio or browser audio. LocalAudio uses direct uncompressed WAV/MP3 assets. Preserve the application ID and private signing key for updates.
 
-Capture and inspect the actual rendered home, collection, toy, and settings screens for visual changes. Keep input responsive and controls readable. Review the diff before committing; preserve unrelated changes. Report the checks actually run and any device checks still outstanding.
+Verify affected multitouch, cancellation, audio interruption, settings persistence, and upgrade behavior. Run npm run check, npm test, and the Android build. Inspect actual rendered screens. Distinguish Chromium checks from physical Android playback, haptics, tilt, system bars, and performance.
+
+Keep keys, SDKs, APKs, logs, and test artifacts out of Git. APKs belong in GitHub Releases. Review the diff, preserve unrelated work, and report observed results.

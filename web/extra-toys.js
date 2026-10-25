@@ -4,21 +4,21 @@
   class Slime {
     constructor(ctx, w, h, settings, sound) {
       Object.assign(this, { ctx, w, h, settings, sound });
-      this.hue = 155;
       this.reset();
     }
     reset() {
-      this.rim = Array.from({ length: 64 }, (_, i) => {
-        const a = (i / 64) * TAU;
-        return {
-          x: this.w / 2 + Math.cos(a) * this.w * 0.4,
-          y: this.h / 2 + Math.sin(a) * Math.min(this.h * 0.34, this.w * 0.65),
-          vx: 0,
-          vy: 0,
-          a,
-        };
-      });
+      this.cols = Math.min(80, Math.ceil(this.w / 6));
+      this.rows = Math.min(160, Math.ceil((this.cols * this.h) / this.w));
+      this.field = new Float32Array(this.cols * this.rows);
+      this.velocity = new Float32Array(this.field.length);
+      this.pressure = new Float32Array(this.field.length);
+      this.surface = document.createElement('canvas');
+      this.surface.width = this.cols;
+      this.surface.height = this.rows;
+      this.surfaceContext = this.surface.getContext('2d');
+      this.image = this.surfaceContext.createImageData(this.cols, this.rows);
       this.previous = new Map();
+      this.time = 0;
     }
     resize(w, h) {
       this.w = w;
@@ -26,102 +26,102 @@
       this.reset();
     }
     update(dt, touches) {
-      const step = Math.min(2, dt * 60) * (this.settings.gentle ? 0.5 : 1);
-      for (const p of this.rim) {
-        const tx = this.w / 2 + Math.cos(p.a) * this.w * 0.4,
-          ty = this.h / 2 + Math.sin(p.a) * Math.min(this.h * 0.34, this.w * 0.65);
-        p.vx += (tx - p.x) * 0.018 * step;
-        p.vy += (ty - p.y) * 0.018 * step;
-        for (const touch of touches) {
-          const d = Math.hypot(touch.x - p.x, touch.y - p.y),
-            weight = Math.max(0, 1 - d / 170);
-          p.vx += (touch.x - p.x) * weight * 0.003 * step;
-          p.vy += (touch.y - p.y) * weight * 0.003 * step;
-        }
-        p.vx *= Math.pow(0.89, step);
-        p.vy *= Math.pow(0.89, step);
-        p.x += p.vx * step;
-        p.y += p.vy * step;
+      this.time += dt;
+      this.pressure.fill(0);
+      const sx = this.w / (this.cols - 1),
+        sy = this.h / (this.rows - 1);
+      for (const touch of touches) {
+        const cx = touch.x / sx,
+          cy = touch.y / sy,
+          rx = 65 / sx,
+          ry = 65 / sy;
+        for (
+          let y = Math.max(0, Math.floor(cy - ry * 2));
+          y < Math.min(this.rows, cy + ry * 2);
+          y++
+        )
+          for (
+            let x = Math.max(0, Math.floor(cx - rx * 2));
+            x < Math.min(this.cols, cx + rx * 2);
+            x++
+          ) {
+            const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
+            this.pressure[y * this.cols + x] -= 26 * Math.exp(-d * 2);
+          }
+      }
+      const steps = Math.max(1, Math.ceil(dt * 60)),
+        step = Math.min(1, (dt * 60) / steps) * (this.settings.gentle ? 0.7 : 1);
+      for (let sub = 0; sub < steps; sub++) {
+        for (let y = 0; y < this.rows; y++)
+          for (let x = 0; x < this.cols; x++) {
+            const i = y * this.cols + x,
+              h = this.field[i],
+              left = this.field[y * this.cols + Math.max(0, x - 1)],
+              right = this.field[y * this.cols + Math.min(this.cols - 1, x + 1)],
+              up = this.field[Math.max(0, y - 1) * this.cols + x],
+              down = this.field[Math.min(this.rows - 1, y + 1) * this.cols + x];
+            this.velocity[i] +=
+              (0.12 * (left + right + up + down - 4 * h) + (this.pressure[i] - h) * 0.035) * step;
+            this.velocity[i] *= Math.pow(0.87, step);
+          }
+        for (let i = 0; i < this.field.length; i++)
+          this.field[i] = Math.max(-45, Math.min(15, this.field[i] + this.velocity[i] * step));
       }
     }
     draw() {
-      const c = this.ctx;
-      c.fillStyle = '#142a2b';
-      c.fillRect(0, 0, this.w, this.h);
-      const gradient = c.createLinearGradient(
-        this.w * 0.15,
-        this.h * 0.2,
-        this.w * 0.8,
-        this.h * 0.8
-      );
-      gradient.addColorStop(0, 'hsl(' + this.hue + ' 80% 74%)');
-      gradient.addColorStop(0.45, 'hsl(' + this.hue + ' 65% 49%)');
-      gradient.addColorStop(1, 'hsl(' + this.hue + ' 75% 26%)');
-      c.shadowColor = '#001b1b99';
-      c.shadowBlur = 30;
-      c.shadowOffsetY = 16;
-      c.fillStyle = gradient;
-      c.beginPath();
-      const points = this.rim;
-      const first = points[0],
-        last = points[points.length - 1];
-      c.moveTo((last.x + first.x) / 2, (last.y + first.y) / 2);
-      for (let i = 0; i < points.length; i++) {
-        const p = points[i],
-          next = points[(i + 1) % points.length];
-        c.quadraticCurveTo(p.x, p.y, (p.x + next.x) / 2, (p.y + next.y) / 2);
-      }
-      c.closePath();
-      c.fill();
-      c.shadowColor = 'transparent';
-      c.shadowOffsetY = 0;
-      c.save();
-      c.clip();
-      c.lineWidth = 2;
-      for (let layer = 0; layer < 9; layer++) {
-        const scale = 0.25 + layer * 0.095;
-        c.strokeStyle = 'hsla(' + this.hue + ' 95% 88% / ' + (0.11 + (layer % 3) * 0.04) + ')';
-        c.beginPath();
-        for (let i = 0; i <= points.length; i++) {
-          const p = points[i % points.length],
-            x = this.w / 2 + (p.x - this.w / 2) * scale,
-            y = this.h / 2 + (p.y - this.h / 2) * scale;
-          if (i === 0) c.moveTo(x, y);
-          else c.lineTo(x, y);
+      const data = this.image.data;
+      for (let y = 0; y < this.rows; y++)
+        for (let x = 0; x < this.cols; x++) {
+          const i = y * this.cols + x,
+            h = this.field[i],
+            dx =
+              (this.field[y * this.cols + Math.min(this.cols - 1, x + 1)] -
+                this.field[y * this.cols + Math.max(0, x - 1)]) *
+              0.45,
+            dy =
+              (this.field[Math.min(this.rows - 1, y + 1) * this.cols + x] -
+                this.field[Math.max(0, y - 1) * this.cols + x]) *
+              0.45;
+          const normal = Math.sqrt(dx * dx + dy * dy + 1),
+            light = Math.max(0, (dx * 0.42 + dy * 0.53 + 0.74) / normal),
+            shine = Math.pow(Math.max(0, (dx * 0.2 + dy * 0.25 + 0.95) / normal), 28) * 100;
+          const shade =
+            0.58 +
+            light * 0.48 +
+            h * 0.002 +
+            Math.sin(x * 0.12 + y * 0.06 + this.time * 0.1) * 0.016;
+          data[i * 4] = Math.min(255, 82 * shade + shine);
+          data[i * 4 + 1] = Math.min(255, 184 * shade + shine);
+          data[i * 4 + 2] = Math.min(255, 146 * shade + shine);
+          data[i * 4 + 3] = 255;
         }
+      this.surfaceContext.putImageData(this.image, 0, 0);
+      const c = this.ctx;
+      c.imageSmoothingEnabled = true;
+      c.drawImage(this.surface, 0, 0, this.w, this.h);
+      c.strokeStyle = '#e6ffe626';
+      c.lineWidth = 1;
+      for (let i = 0; i < 30; i++) {
+        const x = (i * 137.508) % this.w,
+          y = (i * 247.31) % this.h,
+          ix = Math.min(this.cols - 1, Math.floor((x / this.w) * this.cols)),
+          iy = Math.min(this.rows - 1, Math.floor((y / this.h) * this.rows)),
+          offset = this.field[iy * this.cols + ix] * 0.5;
+        c.beginPath();
+        c.ellipse(x, y + offset, 2 + (i % 3), 1.5 + (i % 2), 0.4, 0, TAU);
         c.stroke();
       }
-      const shine = c.createRadialGradient(
-        this.w * 0.35,
-        this.h * 0.34,
-        0,
-        this.w * 0.4,
-        this.h * 0.4,
-        this.w * 0.4
-      );
-      shine.addColorStop(0, '#ffffff60');
-      shine.addColorStop(0.6, '#ffffff00');
-      c.fillStyle = shine;
-      c.fillRect(0, 0, this.w, this.h);
-      c.restore();
     }
     down(p) {
-      this.previous.set(p.id, p);
-      this.sound.slime();
-      this.sound.pulse(1);
+      this.previous.set(p.id, { x: p.x, y: p.y });
+      this.sound.slime(0.6);
     }
     move(p) {
-      const old = this.previous.get(p.id);
-      if (!old) return;
-      const dx = p.x - old.x,
-        dy = p.y - old.y;
-      for (const node of this.rim) {
-        const weight = Math.max(0, 1 - Math.hypot(node.x - old.x, node.y - old.y) / 210);
-        node.x += dx * weight * 0.85;
-        node.y += dy * weight * 0.85;
+      const before = this.previous.get(p.id);
+      if (before && Math.hypot(before.x - p.x, before.y - p.y) > 9) {
+        this.sound.slime(0.7);
+        this.previous.set(p.id, { x: p.x, y: p.y });
       }
-      this.previous.set(p.id, p);
-      if (Math.hypot(dx, dy) > 2) this.sound.slime();
     }
     up(p) {
       this.previous.delete(p.id);
@@ -290,22 +290,20 @@
       this.reset();
     }
     reset() {
-      this.angle = [-Math.min(0.45, this.layout().maxAngle), 0, 0, 0, 0];
+      this.angle = Array(5).fill(0);
       this.velocity = Array(5).fill(0);
-      this.drag = null;
+      this.drags = new Map();
     }
     resize(w, h) {
       this.w = w;
       this.h = h;
-      this.drag = null;
-      const limit = this.layout().maxAngle;
-      this.angle[0] = Math.max(-limit, this.angle[0]);
-      this.angle[4] = Math.min(limit, this.angle[4]);
+      this.drags.clear();
+      for (let i = 0; i < 5; i++) this.angle[i] = this.limit(i, this.angle[i]);
     }
     layout() {
-      const r = Math.min(this.w / 20, this.h / 18, 30);
-      const length = Math.min(this.w * 0.4, this.h * 0.35);
-      const start = this.w / 2 - r * 4.1;
+      const r = Math.min(this.w / 20, this.h / 18, 30),
+        length = Math.min(this.w * 0.4, this.h * 0.35),
+        start = this.w / 2 - r * 4.1;
       return {
         r,
         length,
@@ -314,27 +312,82 @@
         maxAngle: Math.asin(Math.max(0.05, Math.min(0.95, (start - r - 8) / length))),
       };
     }
+    limit(i, a) {
+      const { r, start, length } = this.layout(),
+        pivot = start + i * r * 2.05,
+        min = Math.asin(Math.max(-0.95, Math.min(0.95, (r + 8 - pivot) / length))),
+        max = Math.asin(Math.max(-0.95, Math.min(0.95, (this.w - r - 8 - pivot) / length)));
+      return Math.max(min, Math.min(max, a));
+    }
+    positions() {
+      const { r, start, length, top } = this.layout();
+      return this.angle.map((a, i) => ({
+        x: start + i * r * 2.05 + Math.sin(a) * length,
+        y: top + Math.cos(a) * length,
+        tx: Math.cos(a),
+        ty: -Math.sin(a),
+      }));
+    }
     update(dt) {
       dt = Math.min(dt, 0.033) * (this.settings.gentle ? 0.6 : 1);
-      for (const i of [0, 4]) {
-        if (this.drag?.index === i) continue;
-        const before = this.angle[i];
-        this.velocity[i] += -Math.sin(before) * 11 * dt;
-        this.velocity[i] *= Math.pow(0.997, dt * 60);
-        this.angle[i] += this.velocity[i] * dt;
-        if (
-          (i === 0 && before < 0 && this.angle[i] >= 0 && this.velocity[i] > 0.08) ||
-          (i === 4 && before > 0 && this.angle[i] <= 0 && this.velocity[i] < -0.08)
-        ) {
-          const other = i === 0 ? 4 : 0;
-          if (this.drag?.index !== other) {
-            this.velocity[other] = this.velocity[i] * 0.98;
-            this.angle[other] = this.velocity[i] * dt;
+      const { r, length } = this.layout(),
+        steps = Math.ceil(dt * 240),
+        step = dt / Math.max(1, steps),
+        held = new Map(Array.from(this.drags.values()).map((d) => [d.index, d]));
+      let strongest = 0;
+      for (let sub = 0; sub < steps; sub++) {
+        for (let i = 0; i < 5; i++) {
+          if (held.has(i)) {
+            const delta = Math.max(
+              -5 * step,
+              Math.min(5 * step, held.get(i).angle - this.angle[i])
+            );
+            this.velocity[i] = delta / step;
+            this.angle[i] += delta;
+          } else {
+            this.velocity[i] += -Math.sin(this.angle[i]) * 11 * step;
+            this.velocity[i] *= Math.pow(0.999, step * 60);
+            this.angle[i] += this.velocity[i] * step;
           }
-          this.velocity[i] = 0;
-          this.angle[i] = 0;
-          this.sound.clack();
         }
+        for (let iteration = 0; iteration < 5; iteration++) {
+          const p = this.positions();
+          for (let a = 0; a < 5; a++)
+            for (let b = a + 1; b < 5; b++) {
+              const dx = p[b].x - p[a].x,
+                dy = p[b].y - p[a].y,
+                d = Math.hypot(dx, dy);
+              if (d >= r * 2 || d < 0.001) continue;
+              const nx = dx / d,
+                ny = dy / d,
+                ja = p[a].tx * nx + p[a].ty * ny,
+                jb = p[b].tx * nx + p[b].ty * ny,
+                ia = held.has(a) ? 0 : 1,
+                ib = held.has(b) ? 0 : 1,
+                denom = ia * ja * ja + ib * jb * jb;
+              if (denom < 0.001) continue;
+              const relative = (this.velocity[b] * jb - this.velocity[a] * ja) * length;
+              if (relative < 0) {
+                const impulse = (-1.96 * relative) / denom;
+                this.velocity[a] -= (impulse * ia * ja) / length;
+                this.velocity[b] += (impulse * ib * jb) / length;
+                strongest = Math.max(strongest, -relative);
+              }
+              const correction = ((r * 2 - d) * 0.65) / denom;
+              this.angle[a] -= (correction * ia * ja) / length;
+              this.angle[b] += (correction * ib * jb) / length;
+            }
+        }
+        for (let i = 0; i < 5; i++) {
+          const limit = this.limit(i, this.angle[i]);
+          if (limit !== this.angle[i]) this.velocity[i] = 0;
+          this.angle[i] = limit;
+          this.velocity[i] = Math.max(-7, Math.min(7, this.velocity[i]));
+        }
+      }
+      if (strongest > 25) {
+        if (this.sound.metal) this.sound.metal(Math.min(1, strongest / 250));
+        else this.sound.clack();
       }
     }
     draw() {
@@ -382,38 +435,44 @@
         c.shadowOffsetY = 0;
       }
     }
+
     down(p) {
-      const { r, length, top, start } = this.layout(),
-        index = p.x < this.w / 2 ? 0 : 4,
-        pivot = start + index * r * 2.05;
-      if (
-        Math.hypot(
-          p.x - (pivot + Math.sin(this.angle[index]) * length),
-          p.y - (top + Math.cos(this.angle[index]) * length)
-        ) > Math.max(r * 2.2, 50)
-      )
-        return;
-      this.drag = { id: p.id, index };
-      this.velocity[index] = 0;
-      this.move(p);
+      const positions = this.positions(),
+        { r } = this.layout();
+      let index = -1,
+        best = Math.max(44, r * 2);
+      for (let i = 0; i < 5; i++) {
+        if (Array.from(this.drags.values()).some((d) => d.index === i)) continue;
+        const d = Math.hypot(p.x - positions[i].x, p.y - positions[i].y);
+        if (d < best) {
+          best = d;
+          index = i;
+        }
+      }
+      if (index >= 0) {
+        this.drags.set(p.id, { index, angle: this.angle[index] });
+        this.velocity[index] = 0;
+        this.move(p);
+      }
     }
     move(p) {
-      if (this.drag?.id !== p.id) return;
-      const { r, top, start, maxAngle } = this.layout(),
-        i = this.drag.index,
-        pivot = start + i * r * 2.05,
-        a = Math.atan2(p.x - pivot, Math.max(10, p.y - top));
-      this.angle[i] =
-        i === 0 ? Math.max(-maxAngle, Math.min(0, a)) : Math.min(maxAngle, Math.max(0, a));
+      const drag = this.drags.get(p.id);
+      if (!drag) return;
+      const { start, r, top } = this.layout(),
+        pivot = start + drag.index * r * 2.05;
+      drag.angle = this.limit(drag.index, Math.atan2(p.x - pivot, Math.max(10, p.y - top)));
     }
-    up(p) {
-      if (this.drag?.id === p.id) this.drag = null;
+    up(p, remaining, cancelled) {
+      const drag = this.drags.get(p.id);
+      if (drag && cancelled) this.velocity[drag.index] = 0;
+      this.drags.delete(p.id);
     }
   }
   const silent = { pulse() {}, slime() {}, switch() {}, clack() {} };
   function preview(Class, c, w, h) {
     const toy = new Class(c, w, h, { gentle: true }, silent);
-    if (Class === Cradle) toy.angle = [-0.35, 0, 0, 0, 0.2];
+    if (Class === Slime)
+      for (let i = 0; i < 20; i++) toy.update(1 / 60, [{ x: w * 0.55, y: h * 0.58 }]);
     if (Class === Sand) {
       toy.down({ id: 1, x: w * 0.2, y: h * 0.5 });
       for (let i = 0; i < 40; i++)

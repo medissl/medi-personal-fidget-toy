@@ -1,16 +1,23 @@
 (() => {
   'use strict';
   const files = {
-    water: 'water.ogg',
-    water2: 'water2.ogg',
-    pop: 'pop.ogg',
-    pop2: 'pop2.ogg',
-    slime: 'slime.ogg',
-    slime2: 'slime2.ogg',
-    click: 'click.ogg',
-    switch: 'switch.ogg',
-    toggle: 'toggle.ogg',
-    metal: 'metal.ogg',
+    water: 'water.wav',
+    water2: 'water2.wav',
+    pop: 'pop.wav',
+    pop2: 'pop2.wav',
+    slime: 'slime.wav',
+    slime2: 'slime2.wav',
+    click: 'click.wav',
+    switch: 'switch.wav',
+    toggle: 'toggle.wav',
+    metal: 'metal.wav',
+    zipper: 'zipper.wav',
+    carve: 'carve.wav',
+    chop: 'chop.wav',
+    glass: 'glass.wav',
+    clink: 'clink.wav',
+    wrap: 'wrap.wav',
+    space: 'space.wav',
   };
   const tracks = {
     floating: 'floating-cities.mp3',
@@ -21,6 +28,8 @@
     constructor(settings, notify) {
       Object.assign(this, { settings, notify });
       this.music = document.getElementById('bgm');
+      this.native =
+        typeof window.StillNative?.configureAudio === 'function' ? window.StillNative : null;
       this.context = null;
       this.active = false;
       this.buffers = new Map();
@@ -32,6 +41,10 @@
       this.music.addEventListener('error', () => this.notify('Music could not load.'));
     }
     unlock() {
+      if (this.native) {
+        this.sync();
+        return;
+      }
       if (!this.context) {
         const Context = window.AudioContext || window.webkitAudioContext;
         if (!Context) return;
@@ -84,8 +97,21 @@
       return promise;
     }
     sync() {
+      if (this.native) {
+        const s = this.settings;
+        this.native.configureAudio(
+          this.active,
+          s.sounds,
+          s.music,
+          s.volume / 100,
+          s.sfxVolume / 100,
+          s.musicVolume / 100,
+          s.track
+        );
+        return;
+      }
       const s = this.settings,
-        enabled = this.active && !s.muted,
+        enabled = this.active,
         volume = s.volume / 100;
       if (this.context) {
         this.sfxGain.gain.value = enabled && s.sounds ? ((volume * s.sfxVolume) / 100) * 1.6 : 0;
@@ -120,17 +146,20 @@
       }
     }
     sample(name, { volume = 1, rate = 1, duration = 0.5, interval = 60, group = name } = {}) {
-      if (!this.active || !this.settings.sounds || this.settings.muted || !this.context) return;
+      if (!this.active || !this.settings.sounds || (!this.context && !this.native)) return;
       const stamp = performance.now(),
         epoch = this.epoch;
       if (stamp - (this.times.get(group) || -1000) < interval) return;
       this.times.set(group, stamp);
+      if (this.native) {
+        this.native.playSound(name, volume, rate);
+        return;
+      }
       const play = (buffer) => {
         if (
           !buffer ||
           epoch !== this.epoch ||
           !this.active ||
-          this.settings.muted ||
           !this.settings.sounds ||
           performance.now() - stamp > 180
         )
@@ -202,6 +231,48 @@
     clack() {
       this.sample('metal', { duration: 0.15, interval: 160, group: 'clack', volume: 0.75 });
       this.pulse(1);
+    }
+    carve() {
+      this.sample('carve', { duration: 0.12, interval: 85, volume: 0.75, group: 'carve' });
+    }
+    metal(strength = 0.5) {
+      this.sample('clink', {
+        duration: 0.14,
+        interval: 70,
+        volume: 0.35 + strength * 0.6,
+        rate: 0.85 + Math.random() * 0.3,
+        group: 'metal',
+      });
+    }
+    glass() {
+      this.sample('glass', { duration: 1.1, interval: 180, volume: 1, group: 'glass' });
+    }
+    zip() {
+      this.sample('zipper', { duration: 0.18, interval: 110, volume: 1, group: 'zipper' });
+    }
+    packaging() {
+      this.sample('wrap', { duration: 0.1, interval: 40, volume: 1, group: 'wrap' });
+      this.pulse(1);
+    }
+    chop() {
+      this.sample('chop', { duration: 0.18, interval: 130, volume: 1, group: 'chop' });
+      this.sample('slime', {
+        duration: 0.09,
+        interval: 130,
+        volume: 0.22,
+        rate: 1.6,
+        group: 'chop-wet',
+      });
+      this.pulse(2);
+    }
+    space(count = 1) {
+      this.sample('space', {
+        duration: 1.1,
+        interval: 240,
+        volume: 0.35,
+        rate: [0.5, 0.667, 0.75, 1, 1.25][(count - 1) % 5],
+        group: 'space',
+      });
     }
     pulse(kind = 1) {
       if (!this.active || !this.settings.haptics || performance.now() - this.lastPulse < 45) return;

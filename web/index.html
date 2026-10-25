@@ -3,34 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#14202a" />
+    <meta name="theme-color" content="#f4e9d3" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>Medi Personal Fidget Toy</title>
-    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <title>No-No Stress</title>
+    <link rel="icon" href="images/stress-mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <main id="app">
       <section id="home" class="screen home" aria-labelledby="home-title">
         <div class="home-logo">
-          <canvas id="home-art" aria-hidden="true"></canvas>
-          <h1 id="home-title">Medi<br /><span>Personal Fidget Toy</span></h1>
+          <img id="home-mark" src="images/stress-mark.svg" alt="" width="180" height="180" />
+          <h1 id="home-title">No-No Stress</h1>
         </div>
         <div class="home-controls">
-          <button
-            id="random-play"
+          <a
+            id="github-link"
             class="round side"
-            aria-label="Play a random toy"
-            data-icon="shuffle"
-          ></button
+            href="https://github.com/medissl"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open my GitHub"
+            data-icon="github"
+          ></a
           ><button id="play" class="round play-button" aria-label="Play" data-icon="play"></button
           ><button
             class="round side settings-open"
             aria-label="Open settings"
-            data-icon="menu"
+            data-icon="settings"
           ></button>
         </div>
       </section>
@@ -59,23 +62,6 @@
             aria-label="Back to toy selection"
             data-icon="back"
           ></button>
-          <div class="center-tools">
-            <button
-              id="pause"
-              class="round"
-              aria-label="Pause"
-              aria-pressed="false"
-              data-icon="pause"
-            ></button
-            ><button
-              id="sound-toggle"
-              class="round"
-              aria-label="Mute audio"
-              aria-pressed="false"
-              data-icon="sound"
-            ></button
-            ><button id="reset" class="round" aria-label="Reset" data-icon="reset"></button>
-          </div>
           <button
             class="round settings-open"
             aria-label="Open settings"
@@ -135,22 +121,24 @@
       /></label>
       <label class="range-row" for="density"
         ><span>Particles</span><output id="density-value"></output
-        ><input id="density" type="range" min="3000" max="18000" step="3000"
+        ><input id="density" type="range" min="2400" max="14400" step="1200"
       /></label>
       <details>
         <summary>Controls &amp; credits</summary>
         <p>
-          Tap near the top to reveal controls. They fade after two seconds. Swiping does not reveal
-          them.
+          Tap near the top to reveal controls, then tap an icon to use it. They fade after five
+          seconds. Swiping does not reveal them.
         </p>
         <p>
-          Stardust: hold to gather, release to burst. Two fingers orbit and pinch, three create a
-          vortex, four pull into separate wells, five repel. Try the five mode icons at the bottom.
+          Stardust: hold to gather and release to burst. Fingers are moving checkpoints. Pinch,
+          spread, cross, and move them to bend the currents; nearby groups can join or split the
+          swarms. Shapes emerge from your placement and the particles' momentum. Seven fingers
+          create obstacles in a directional stream.
         </p>
         <p>
           Music: Floating Cities, Carefree, and Dream Culture by Kevin MacLeod (incompetech.com), CC
-          BY 4.0. Recorded effects: Kenney (CC0) and rubberduck / OpenGameArt (CC0). Everything is
-          bundled offline.
+          BY 4.0. Recorded effects: Kenney, rubberduck, and AntumDeluge (CC0). Font: Fredoka (SIL
+          OFL 1.1). Everything is bundled offline.
         </p>
         <p id="storage-note" role="status"></p>
       </details>
@@ -162,6 +150,9 @@
     <script src="pond.js"></script>
     <script src="tactile.js"></script>
     <script src="extra-toys.js"></script>
+    <script src="wood-lathe.js"></script>
+    <script src="physics-toys.js"></script>
+    <script src="everyday-toys.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

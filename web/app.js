@@ -2,32 +2,33 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const icons = {
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
+    play: '<path d="M8 5 20 12 8 19Z"/>',
     back: '<path d="m14 5-7 7 7 7"/>',
     close: '<path d="m6 6 12 12M6 18 18 6"/>',
     settings:
-      '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/>',
-    menu: '<path d="M5 6h14M5 12h14M5 18h14"/>',
-    sound: '<path d="m11 4-6 5H2v6h3l6 5zM15 8c2 2 2 6 0 8m3-11c4 4 4 10 0 14"/>',
-    muted: '<path d="m11 4-6 5H2v6h3l6 5zM16 9l6 6m0-6-6 6"/>',
-    reset: '<path d="M4 9a8 8 0 1 1 0 6m0-12v6h6"/>',
+      '<path d="' +
+      Array.from({ length: 32 }, (_, i) => {
+        const a = (i / 32) * Math.PI * 2,
+          r = [8, 10, 10, 8][i % 4];
+        return (
+          (i ? 'L' : 'M') +
+          (12 + Math.cos(a) * r).toFixed(2) +
+          ' ' +
+          (12 + Math.sin(a) * r).toFixed(2)
+        );
+      }).join('') +
+      'Z"/><circle cx="12" cy="12" r="3"/>',
     shuffle:
       '<path d="M3 6h3c5 0 7 12 12 12h3m-4-4 4 4-4 4M3 18h3c5 0 7-12 12-12h3m-4-4 4 4-4 4"/>',
-    flow: '<path d="M3 8c6-8 12 8 18 0M3 16c6-8 12 8 18 0"/>',
-    wave: '<path d="M2 12c4-13 6 13 10 0s6 13 10 0"/>',
-    gravity:
-      '<circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-35 12 12)"/>',
-    ribbons: '<path d="M5 3c18 4-8 14 10 18M10 3c18 4-8 14 10 18"/>',
-    electric: '<path d="m14 2-9 12h7l-2 8 9-12h-7z"/>',
+    github:
+      '<path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 19 4.77 5.07 5.07 0 0 0 18.91 1S17.73.65 15 2.48a13.38 13.38 0 0 0-7 0C5.27.65 4.09 1 4.09 1A5.07 5.07 0 0 0 4 4.77 5.44 5.44 0 0 0 2.5 8.55c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 8 18.13V22"/>',
   };
   const icon = (name) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + icons[name] + '</svg>';
   document.querySelectorAll('[data-icon]').forEach((el) => (el.innerHTML = icon(el.dataset.icon)));
   const settings = {
-    schema: 2,
+    schema: 3,
     sounds: true,
     music: false,
-    muted: false,
     haptics: true,
     hapticStrength: 1,
     gentle: matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -35,13 +36,13 @@
     sfxVolume: 100,
     musicVolume: 80,
     brightness: 100,
-    density: 12000,
+    density: 7200,
     track: 'floating',
   };
   try {
     const stored = JSON.parse(localStorage.getItem('still-settings') || '{}');
     if (stored && typeof stored === 'object') {
-      for (const key of ['sounds', 'music', 'muted', 'haptics', 'gentle'])
+      for (const key of ['sounds', 'music', 'haptics', 'gentle'])
         if (typeof stored[key] === 'boolean') settings[key] = stored[key];
       for (const [key, min, max] of [
         ['volume', 0, 100],
@@ -49,14 +50,19 @@
         ['musicVolume', 0, 100],
         ['brightness', 25, 100],
         ['hapticStrength', 1, 3],
-        ['density', 3000, 18000],
+        ['density', 2400, 14400],
       ]) {
         if (Number.isFinite(stored[key]))
           settings[key] = Math.min(max, Math.max(min, Math.round(stored[key])));
       }
-      if (stored.schema !== 2)
-        settings.density = Math.min(18000, Math.max(12000, (stored.density || 1500) * 4));
-      settings.density = Math.round(settings.density / 3000) * 3000;
+      if (stored.schema !== 3)
+        settings.density =
+          Math.round(((Number.isFinite(stored.density) ? stored.density : 12000) * 0.6) / 1200) *
+          1200;
+      settings.density = Math.max(
+        2400,
+        Math.min(14400, Math.round(settings.density / 1200) * 1200)
+      );
       if (['floating', 'carefree', 'dream'].includes(stored.track)) settings.track = stored.track;
     }
   } catch {
@@ -71,12 +77,18 @@
   }
   const sound = new window.Soundscape(settings, notify);
   const toys = {
+    wood: { title: 'Wood carving', type: 'WoodLathe', preview: 'woodPreview' },
+    metal: { title: 'Metal balls', type: 'MetalBalls', preview: 'metalPreview' },
+    slime: { title: 'Slime', type: 'Slime', preview: 'slimePreview' },
+    wrap: { title: 'Packaging pop', type: 'Packaging', preview: 'wrapPreview' },
+    zipper: { title: 'Zipper', type: 'Zipper', preview: 'zipperPreview' },
+    carrots: { title: 'Carrots', type: 'Carrots', preview: 'carrotPreview' },
+    switches: { title: 'On / off', type: 'Switches', preview: 'switchPreview' },
+    glass: { title: 'Glass break', type: 'GlassBreak', preview: 'glassPreview' },
     particles: { title: 'Stardust', type: 'Particles', preview: 'particlePreview' },
     pond: { title: 'Little pond', type: 'Pond', preview: 'pondPreview' },
     bubbles: { title: 'Bubble pad', type: 'Bubbles', preview: 'bubblePreview' },
     dial: { title: 'Slow dial', type: 'Dial', preview: 'dialPreview' },
-    slime: { title: 'Slime', type: 'Slime', preview: 'slimePreview' },
-    switches: { title: 'Buttons', type: 'Switches', preview: 'switchPreview' },
     sand: { title: 'Sand', type: 'Sand', preview: 'sandPreview' },
     cradle: { title: "Newton's cradle", type: 'Cradle', preview: 'cradlePreview' },
   };
@@ -99,7 +111,6 @@
   let screen = 'home',
     currentId = null,
     toy = null,
-    paused = false,
     active = !document.hidden;
   let width = 0,
     height = 0,
@@ -112,13 +123,14 @@
   const canRun = () => active && !$('settings').open;
   function clearPointers() {
     for (const [id, p] of pointers) {
-      toy?.up?.(p, 0, true);
+      clearTimeout(p.wakeTimer);
+      if (p.playing) toy?.up?.(p, 0, true);
       if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
     }
     pointers.clear();
   }
   function audioState() {
-    sound.setActive(screen === 'player' && !paused && canRun());
+    sound.setActive(screen === 'player' && canRun());
   }
   function hideChrome() {
     if (screen !== 'player' || $('settings').open) return;
@@ -131,12 +143,13 @@
     $('game-controls').inert = false;
     $('toy-options').inert = false;
     clearTimeout(chromeTimer);
-    if (screen === 'player' && canRun()) chromeTimer = setTimeout(hideChrome, 2000);
+    if (screen === 'player' && canRun()) chromeTimer = setTimeout(hideChrome, 5000);
   }
   function show(next) {
     screen = next;
     for (const id of ['home', 'library', 'player']) $(id).hidden = id !== next;
     window.StillNative?.setImmersive?.(next === 'player');
+    window.StillNative?.setMotionEnabled?.(next === 'player' && currentId === 'metal');
     audioState();
     window.scrollTo(0, next === 'library' ? savedScroll : 0);
     if (next === 'library') {
@@ -175,24 +188,33 @@
   function toyOptions() {
     const options = $('toy-options');
     options.replaceChildren();
-    if (currentId !== 'particles') return;
-    const modes = document.createElement('div');
-    modes.className = 'option-group';
-    for (const mode of ['flow', 'wave', 'gravity', 'ribbons', 'electric']) {
-      const b = optionButton(
-        mode[0].toUpperCase() + mode.slice(1) + ' mode',
-        icon(mode),
-        mode === 'flow',
-        () => {
-          toy.mode = mode;
-          modes
-            .querySelectorAll('button')
-            .forEach((el) => el.setAttribute('aria-pressed', String(el === b)));
-          if (paused) toy.draw();
-        }
-      );
-      modes.append(b);
+    if (currentId === 'wood') {
+      const group = document.createElement('div');
+      group.className = 'option-group';
+      for (const [tip, label, shape] of [
+        ['round', 'Round tool', '<circle cx="12" cy="12" r="6"/>'],
+        ['square', 'Square tool', '<rect x="6" y="6" width="12" height="12" rx="1"/>'],
+        ['triangle', 'Triangle tool', '<path d="m12 4 8 15H4Z"/>'],
+      ]) {
+        const b = optionButton(
+          label,
+          '<svg viewBox="0 0 24 24" aria-hidden="true">' + shape + '</svg>',
+          tip === 'round',
+          () => {
+            toy.tip = tip;
+            group
+              .querySelectorAll('button[data-tip]')
+              .forEach((el) => el.setAttribute('aria-pressed', String(el === b)));
+          }
+        );
+        b.dataset.tip = tip;
+        group.append(b);
+      }
+      group.append(optionButton('Next silhouette', icon('shuffle'), false, () => toy.nextDesign()));
+      options.append(group);
+      return;
     }
+    if (currentId !== 'particles') return;
     const palettes = document.createElement('div');
     palettes.className = 'option-group';
     for (const palette of ['rainbow', 'ember', 'moon']) {
@@ -205,13 +227,12 @@
           palettes
             .querySelectorAll('button')
             .forEach((el) => el.setAttribute('aria-pressed', String(el === b)));
-          if (paused) toy.draw();
         }
       );
       b.dataset.palette = palette;
       palettes.append(b);
     }
-    options.append(modes, palettes);
+    options.append(palettes);
   }
   function openToy(id) {
     if (!ctx) {
@@ -220,14 +241,12 @@
     }
     savedScroll = window.scrollY;
     currentId = id;
-    paused = false;
     show('player');
     fitCanvas();
     toy = new window.StillToys[toys[id].type](ctx, width, height, settings, sound);
     toy.draw();
     canvas.setAttribute('aria-label', toys[id].title);
     toyOptions();
-    updateControls();
     applyVisuals();
     showChrome();
     sound.unlock();
@@ -236,17 +255,8 @@
   function closeToy() {
     clearPointers();
     toy = null;
-    paused = false;
     sound.setActive(false);
     show('library');
-  }
-  function updateControls() {
-    $('pause').innerHTML = icon(paused ? 'play' : 'pause');
-    $('pause').setAttribute('aria-label', paused ? 'Resume' : 'Pause');
-    $('pause').setAttribute('aria-pressed', String(paused));
-    $('sound-toggle').innerHTML = icon(settings.muted ? 'muted' : 'sound');
-    $('sound-toggle').setAttribute('aria-label', settings.muted ? 'Unmute audio' : 'Mute audio');
-    $('sound-toggle').setAttribute('aria-pressed', String(settings.muted));
   }
   function applyVisuals() {
     canvas.style.filter = 'brightness(' + settings.brightness / 100 + ')';
@@ -281,7 +291,6 @@
     sound.unlock();
     sound.sync();
     applyVisuals();
-    updateControls();
   }
   document.querySelectorAll('.settings-open').forEach((b) =>
     b.addEventListener('click', () => {
@@ -320,28 +329,14 @@
     savedScroll = 0;
     show('library');
   });
-  $('random-play').addEventListener('click', () =>
-    openToy(Object.keys(toys)[Math.floor(Math.random() * Object.keys(toys).length)])
-  );
+  $('github-link').addEventListener('click', (event) => {
+    if (window.StillNative?.openGitHub) {
+      event.preventDefault();
+      window.StillNative.openGitHub();
+    }
+  });
   $('home-back').addEventListener('click', () => show('home'));
   $('close-toy').addEventListener('click', closeToy);
-  $('sound-toggle').addEventListener('click', () => {
-    settings.muted = !settings.muted;
-    saveSettings();
-  });
-  $('pause').addEventListener('click', () => {
-    paused = !paused;
-    clearPointers();
-    audioState();
-    updateControls();
-    lastTime = 0;
-    schedule();
-  });
-  $('reset').addEventListener('click', () => {
-    clearPointers();
-    toy?.reset();
-    toy?.draw();
-  });
   $('game-controls').addEventListener('click', () => {
     if (screen === 'player') showChrome();
   });
@@ -352,6 +347,28 @@
     const r = canvas.getBoundingClientRect();
     return { id: event.pointerId, x: event.clientX - r.left, y: event.clientY - r.top };
   }
+  let armedControl = null;
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      armedControl = !$('player').classList.contains('controls-hidden')
+        ? event.target.closest?.('#game-controls button,#toy-options button')
+        : null;
+    },
+    true
+  );
+  document.addEventListener(
+    'click',
+    (event) => {
+      const control = event.target.closest?.('#game-controls button,#toy-options button');
+      if (control && event.detail !== 0 && control !== armedControl) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+      armedControl = null;
+    },
+    true
+  );
   canvas.addEventListener('pointerdown', (event) => {
     if (!canRun() || !toy || event.button > 0) return;
     event.preventDefault();
@@ -361,40 +378,64 @@
       startX: event.clientX,
       startY: event.clientY,
       moved: false,
+      wake: $('player').classList.contains('controls-hidden') && event.clientY < 100,
+      playing: false,
     };
     canvas.setPointerCapture(p.id);
     pointers.set(p.id, p);
-    if (pointers.size > 1) for (const other of pointers.values()) other.moved = true;
     sound.unlock();
-    if (!paused) toy.down?.(p);
+    if (!p.wake) {
+      toy.down?.(p);
+      p.playing = true;
+    } else
+      p.wakeTimer = setTimeout(() => {
+        if (pointers.get(p.id) === p && p.wake && canRun()) {
+          p.wake = false;
+          p.playing = true;
+          toy?.down?.(p);
+        }
+      }, 250);
+    if (pointers.size > 1)
+      for (const other of pointers.values()) {
+        other.moved = true;
+        if (!other.playing) {
+          clearTimeout(other.wakeTimer);
+          toy.down?.(other);
+          other.playing = true;
+          other.wake = false;
+        }
+      }
   });
   canvas.addEventListener('pointermove', (event) => {
-    const old = pointers.get(event.pointerId);
-    if (!old || !canRun()) return;
-    const p = { ...old, ...point(event) };
+    const p = pointers.get(event.pointerId);
+    if (!p || !canRun()) return;
+    Object.assign(p, point(event));
     if (Math.hypot(event.clientX - p.startX, event.clientY - p.startY) > 12) p.moved = true;
-    pointers.set(p.id, p);
-    if (!paused) toy?.move?.(p);
+    if (p.wake && p.moved) {
+      clearTimeout(p.wakeTimer);
+      p.wake = false;
+      toy?.down?.(p);
+      p.playing = true;
+    }
+    if (p.playing) toy?.move?.(p);
   });
   function release(event) {
     const p = pointers.get(event.pointerId);
     if (!p) return;
+    clearTimeout(p.wakeTimer);
     pointers.delete(p.id);
     const cancelled = event.type !== 'pointerup';
-    if (!paused) toy?.up?.(p, pointers.size, cancelled);
-    if (
-      !cancelled &&
-      !p.moved &&
-      p.startY < 100 &&
-      performance.now() - p.started < 500 &&
-      pointers.size === 0
-    )
+    if (p.playing)
+      toy?.up?.(p, Array.from(pointers.values()).filter((q) => q.playing).length, cancelled);
+    if (!cancelled && p.wake && !p.moved && pointers.size === 0) {
+      armedControl = null;
       showChrome();
+    }
   }
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'])
     canvas.addEventListener(type, release);
   canvas.addEventListener('keydown', (event) => {
-    if (!paused && canRun()) {
+    if (canRun()) {
       sound.unlock();
       toy?.key?.(event);
     }
@@ -434,7 +475,6 @@
     resizeTimer = setTimeout(() => {
       if (screen === 'player') fitCanvas();
       else if (screen === 'library') drawPreviews();
-      drawHome(0);
     }, 90);
   });
   function sized(el) {
@@ -452,49 +492,35 @@
       if (c && w) window.StillToys[toys[el.dataset.preview].preview](c, w, h);
     }
   }
-  function drawHome(time) {
-    if (screen !== 'home') return;
-    const el = $('home-art'),
-      dpr = Math.min(devicePixelRatio || 1, 2);
-    if (
-      el.width !== Math.round(el.clientWidth * dpr) ||
-      el.height !== Math.round(el.clientHeight * dpr)
-    )
-      sized(el);
-    const c = el.getContext('2d');
-    if (c)
-      window.StillToys.particlePreview(
-        c,
-        el.clientWidth,
-        el.clientHeight,
-        time,
-        '#14202a',
-        settings.brightness / 100
-      );
-  }
   function animate(time) {
     frame = 0;
     const dt = lastTime ? Math.min(0.033, (time - lastTime) / 1000) : 1 / 60;
     lastTime = time;
     if (!canRun()) return;
-    if (screen === 'player' && toy && !paused) {
-      toy.update(dt, Array.from(pointers.values()));
+    if (screen === 'player' && toy) {
+      toy.update(
+        dt,
+        Array.from(pointers.values()).filter((p) => p.playing)
+      );
       toy.draw();
     }
-    if (screen === 'home') drawHome(settings.gentle ? 0 : time / 1000);
+
     schedule();
   }
   function schedule() {
-    if (
-      !frame &&
-      canRun() &&
-      ((screen === 'home' && !settings.gentle) || (screen === 'player' && !paused))
-    )
-      frame = requestAnimationFrame(animate);
+    if (!frame && canRun() && screen === 'player') frame = requestAnimationFrame(animate);
   }
-  window.StillApp = { back, setActive };
+  window.StillApp = {
+    back,
+    setActive,
+    audioError: notify,
+    setTilt(x, y) {
+      if (active && canRun() && currentId === 'metal' && Number.isFinite(x) && Number.isFinite(y))
+        toy?.setTilt?.(Math.max(-10, Math.min(10, x)), Math.max(-10, Math.min(10, y)));
+    },
+  };
   fillSettings();
   applyVisuals();
-  drawHome(0);
+
   schedule();
 })();

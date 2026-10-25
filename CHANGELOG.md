@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — 2026-10-25
+
+- Renamed No-No Stress; cream paper menu, STRESS emblem, GitHub/Play/Options layout.
+- Five-second controls; reveal tap cannot activate a hidden icon; removed top pause/mute/reset.
+- Rich moving particle swarms, glow, white convergence, and finger-driven checkpoint flows.
+- Native Android music and effects bypass WebView playback; normalized recorded WAV assets and legacy mute cleanup.
+- Added wood carving, metal balls with tilt, packaging pop, upward zipper, carrots, and slow-motion glass shards.
+- Replaced slime with a full-screen indentation field and cradle with five stationary, individually draggable pendulums.
+
 ## 0.2.0 — 2026-10-25
 
 - Renamed to Medi Personal Fidget Toy; minimal Android menu and two-column selection.

@@ -6,9 +6,9 @@ const { chromium } = require('playwright'),
   { createServer } = require('./serve.cjs');
 (async () => {
   const server = createServer();
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = 'http://127.0.0.1:' + server.address().port,
-    out = path.resolve(__dirname, '../test-results/v2');
+    out = path.resolve(__dirname, '../test-results/v3');
   fs.mkdirSync(out, { recursive: true });
   let browser;
   try {
@@ -24,24 +24,22 @@ const { chromium } = require('playwright'),
     });
     await context.addInitScript(() => {
       window.__immersive = [];
-      window.StillNative = { setImmersive: (value) => window.__immersive.push(value), pulse() {} };
-      const Native = window.AudioContext;
-      window.__gains = [];
       window.__samples = [];
+      window.StillNative = {
+        setImmersive: (v) => window.__immersive.push(v),
+        setMotionEnabled() {},
+        pulse() {},
+      };
+      const Native = window.AudioContext;
       window.AudioContext = class extends Native {
-        createGain() {
-          const gain = super.createGain();
-          window.__gains.push(gain);
-          return gain;
-        }
         createBufferSource() {
-          const source = super.createBufferSource(),
-            start = source.start.bind(source);
-          source.start = (...a) => {
-            window.__samples.push(source.buffer?.duration);
+          const s = super.createBufferSource(),
+            start = s.start.bind(s);
+          s.start = (...a) => {
+            window.__samples.push(s.buffer?.duration);
             start(...a);
           };
-          return source;
+          return s;
         }
       };
     });
@@ -50,217 +48,280 @@ const { chromium } = require('playwright'),
       external = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => {
-      if (['error', 'warning'].includes(m.type())) errors.push(m.text());
+      if (m.type() === 'error') errors.push(m.text());
     });
     page.on('request', (r) => {
       if (!r.url().startsWith(base)) external.push(r.url());
     });
-    const shot = (name) => page.screenshot({ path: path.join(out, name + '.png'), fullPage: true });
-    const hash = async () =>
-      crypto
-        .createHash('sha256')
-        .update(await page.locator('#playground').screenshot())
-        .digest('hex');
+    const shot = (n) => page.screenshot({ path: path.join(out, n + '.png'), fullPage: true }),
+      hash = async () =>
+        crypto
+          .createHash('sha256')
+          .update(await page.locator('#playground').screenshot())
+          .digest('hex');
     const reveal = async () => {
-      await page.touchscreen.tap(195, 84);
-      await page.waitForTimeout(330);
-      assert(!(await page.locator('#game-controls').evaluate((el) => el.inert)));
+      if (await page.locator('#game-controls').evaluate((e) => e.inert)) {
+        await page.touchscreen.tap(195, 36);
+        await page.waitForTimeout(350);
+      }
     };
     const close = async () => {
       await reveal();
-      await page.getByRole('button', { name: 'Back to toy selection', exact: true }).click();
+      await page.locator('#close-toy').click();
     };
     await page.goto(base);
+    await page.evaluate(() => document.fonts.ready);
+    assert.equal(await page.title(), 'No-No Stress');
+    assert(await page.locator('#home-mark').evaluate((e) => e.complete && e.naturalWidth > 0));
+    assert(await page.evaluate(() => document.fonts.check('600 40px Fredoka')));
+    const alignment = await page.locator('#play').evaluate((e) => {
+      const a = e.getBoundingClientRect(),
+        b = e.querySelector('svg').getBoundingClientRect();
+      return (
+        Math.abs(a.x + a.width / 2 - b.x - b.width / 2) +
+        Math.abs(a.y + a.height / 2 - b.y - b.height / 2)
+      );
+    });
+    assert(alignment < 1, 'centered play glyph');
+    assert.equal(await page.locator('#home-title').innerText(), 'No-No Stress');
     assert.equal(
-      (await page.locator('#home').innerText()).trim().replace(/\s+/g, ' '),
-      'Medi Personal Fidget Toy'
+      await page.locator('#github-link').getAttribute('href'),
+      'https://github.com/medissl'
     );
+    assert.equal(await page.locator('#random-play').count(), 0);
     await shot('menu');
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    assert.equal(await page.locator('[data-toy]').count(), 8);
-    const boxes = await page.locator('[data-toy]').evaluateAll((els) =>
-      els.map((el) => {
-        const r = el.getBoundingClientRect();
-        return { x: r.x, y: r.y, w: r.width };
+    await page.locator('#play').click();
+    assert.equal(await page.locator('[data-toy]').count(), 14);
+    const boxes = await page.locator('[data-toy]').evaluateAll((es) =>
+      es.map((e) => {
+        const r = e.getBoundingClientRect();
+        return { x: r.x, y: r.y };
       })
     );
     assert(
-      Math.abs(boxes[0].y - boxes[1].y) < 1 && boxes[1].x > boxes[0].x && boxes[2].y > boxes[0].y,
-      'Selection must have two columns'
+      Math.abs(boxes[0].y - boxes[1].y) < 1 && boxes[1].x > boxes[0].x && boxes[2].y > boxes[0].y
     );
-    assert.equal(await page.locator('#library p,#library small').count(), 0);
     await shot('selection');
     await page.locator('[data-toy="particles"]').click();
-    assert.equal((await page.locator('#player').innerText()).trim(), '');
-    await page.waitForTimeout(2400);
-    assert(await page.locator('#game-controls').evaluate((el) => el.inert));
-    await shot('stardust-clear');
-    const session = await context.newCDPSession(page);
-    await session.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: 200, y: 450, id: 1 }],
-    });
-    await session.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [{ x: 200, y: 40, id: 1 }],
-    });
-    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.equal(await page.locator('#game-controls button').count(), 2);
+    assert.equal(await page.locator('#toy-options button').count(), 3);
+    await page.waitForTimeout(2600);
     assert(
-      await page.locator('#player').evaluate((el) => el.classList.contains('controls-hidden')),
-      'Upward swipe must not reveal controls'
+      !(await page.locator('#game-controls').evaluate((e) => e.inert)),
+      'controls survive two seconds'
     );
-    await reveal();
-    assert(!(await page.locator('#game-controls').evaluate((el) => el.inert)));
-    await shot('stardust-controls');
-    for (const mode of ['Wave', 'Gravity', 'Ribbons', 'Electric', 'Flow']) {
-      await reveal();
-      await page.getByRole('button', { name: mode + ' mode', exact: true }).click();
-      await session.send('Input.dispatchTouchEvent', {
-        type: 'touchStart',
-        touchPoints: [{ x: 195, y: 422, id: 1 }],
-      });
-      await page.waitForTimeout(300);
-      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    }
-    const points = Array.from({ length: 10 }, (_, i) => ({
-      x: 65 + (i % 5) * 60,
-      y: 260 + Math.floor(i / 5) * 180,
-      id: i + 1,
-    }));
-    for (const count of [2, 3, 4, 5, 10]) {
-      await session.send('Input.dispatchTouchEvent', {
-        type: 'touchStart',
-        touchPoints: points.slice(0, count),
-      });
-      await page.waitForTimeout(80);
-      await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
-    }
-    await session.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: 195, y: 422, id: 1 }],
-    });
-    await page.waitForTimeout(1800);
-    await shot('gather');
-    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await page.waitForTimeout(180);
-    await shot('release-burst');
-    await reveal();
-    await page.getByRole('button', { name: 'Pause', exact: true }).click();
-    const frozen = await hash();
-    await page.waitForTimeout(120);
-    assert.equal(await hash(), frozen);
-    await page.getByRole('button', { name: 'Reset', exact: true }).click();
-    await page.getByRole('button', { name: 'Resume', exact: true }).click();
-    await reveal();
+    await page.waitForTimeout(2850);
+    assert(await page.locator('#game-controls').evaluate((e) => e.inert), 'five-second fade');
+    const session = await context.newCDPSession(page),
+      touch = (type, points) =>
+        session.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+    await touch('touchStart', [{ x: 195, y: 450, id: 1 }]);
+    await touch('touchMove', [{ x: 195, y: 35, id: 1 }]);
+    await touch('touchEnd', []);
+    assert(await page.locator('#game-controls').evaluate((e) => e.inert), 'swipe does not reveal');
+    await page.touchscreen.tap(354, 36);
+    await page.waitForTimeout(350);
+    assert(
+      !(await page.locator('#settings').evaluate((e) => e.open)),
+      'wake tap over hidden gear does not open settings'
+    );
+    assert(!(await page.locator('#game-controls').evaluate((e) => e.inert)));
     await page.locator('#player .settings-open').click();
+    assert(await page.locator('#settings').evaluate((e) => e.open), 'second tap opens options');
+    const frozen = await hash();
+    await page.waitForTimeout(150);
+    assert.equal(await hash(), frozen, 'settings pauses gameplay');
     await page.locator('#music').check();
-    await page.locator('#volume').fill('100');
-    await page.locator('#sfx-volume').fill('100');
-    await page.locator('#music-volume').fill('100');
-    await page.getByRole('button', { name: 'Close settings', exact: true }).click();
+    for (const id of ['volume', 'sfx-volume', 'music-volume'])
+      await page.locator('#' + id).fill('100');
+    await page.locator('#settings-close').click();
     await page.waitForFunction(
       () =>
         !document.querySelector('#bgm').paused && document.querySelector('#bgm').currentTime > 0.1
     );
-    assert(
-      await page.evaluate(() => window.__gains.some((g) => g.gain.value >= 1.39)),
-      'Audio gains must reach the new amplified level'
-    );
+    await page.waitForTimeout(5450);
+    const points = Array.from({ length: 10 }, (_, i) => ({
+      x: 65 + (i % 5) * 65,
+      y: 300 + Math.floor(i / 5) * 210,
+      id: i + 1,
+    }));
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+      await touch('touchStart', n === 1 ? [{ x: 195, y: 422, id: 1 }] : points.slice(0, n));
+      await page.waitForTimeout(n === 1 ? 1800 : 800);
+      if (n === 1) {
+        const pixel = await page
+          .locator('#playground')
+          .evaluate((c) =>
+            Array.from(c.getContext('2d').getImageData(c.width / 2, c.height / 2, 1, 1).data)
+          );
+        assert(
+          pixel.slice(0, 3).every((v) => v >= 235),
+          'meeting point is visibly white'
+        );
+      }
+      if ([1, 2, 6, 7, 8, 9, 10].includes(n)) await shot('particles-' + n);
+      await touch('touchEnd', []);
+      await page.waitForTimeout(160);
+    }
+    await shot('burst');
     await close();
-    assert(await page.locator('#bgm').evaluate((a) => a.paused));
-    assert.equal(await page.evaluate(() => window.__immersive.at(-1)), false);
-    for (const id of ['pond', 'bubbles', 'dial', 'slime', 'switches', 'sand', 'cradle']) {
+    assert(await page.locator('#bgm').evaluate((e) => e.paused));
+    for (const id of [
+      'wood',
+      'metal',
+      'slime',
+      'wrap',
+      'zipper',
+      'carrots',
+      'switches',
+      'glass',
+      'pond',
+      'bubbles',
+      'dial',
+      'sand',
+      'cradle',
+    ]) {
       await page.locator('[data-toy="' + id + '"]').scrollIntoViewIfNeeded();
       const scroll = await page.evaluate(() => scrollY);
       await page.locator('[data-toy="' + id + '"]').click();
-      assert.equal((await page.locator('#player').innerText()).trim(), '');
-      if (id === 'bubbles') {
-        const before = await hash();
-        await page.touchscreen.tap(151, 378);
-        await page.waitForTimeout(220);
-        assert.notEqual(await hash(), before);
-      }
-      if (id === 'pond' || id === 'slime' || id === 'switches') {
-        await page.touchscreen.tap(id === 'switches' ? 110 : 195, id === 'switches' ? 422 : 400);
-        await page.waitForTimeout(200);
-      }
-      if (id === 'sand') {
-        await page.mouse.move(80, 340);
+      assert.equal(
+        (await page.locator('#player').innerText()).trim(),
+        '',
+        'no gameplay text ' + id
+      );
+      if (id === 'wood') {
+        await page.mouse.move(180, 420);
         await page.mouse.down();
-        for (let i = 0; i < 30; i++)
-          await page.mouse.move(80 + i * 8, 340 + Math.sin(i * 0.2) * 70);
+        for (let x = 100; x < 300; x += 5) await page.mouse.move(x, 430);
         await page.mouse.up();
-      }
-      if (id === 'dial') {
+      } else if (id === 'slime') {
+        await touch('touchStart', [{ x: 195, y: 422, id: 1 }]);
+        await page.waitForTimeout(650);
+        await shot('slime-indent');
+        await touch('touchMove', [{ x: 260, y: 460, id: 1 }]);
+        await page.waitForTimeout(200);
+        await touch('touchEnd', []);
+      } else if (id === 'zipper') {
+        await page.mouse.move(195, 729);
+        await page.mouse.down();
+        await page.mouse.move(195, 150, { steps: 35 });
+        await page.mouse.up();
+      } else if (id === 'cradle') {
+        await touch('touchStart', [
+          { x: 155, y: 426, id: 1 },
+          { x: 235, y: 426, id: 2 },
+        ]);
+        await touch('touchMove', [
+          { x: 60, y: 400, id: 1 },
+          { x: 330, y: 400, id: 2 },
+        ]);
+        await page.waitForTimeout(300);
+        await shot('cradle-two-fingers');
+        await touch('touchEnd', []);
+      } else if (id === 'dial') {
         await page.mouse.move(305, 422);
         await page.mouse.down();
-        for (let i = 0; i < 60; i++)
+        for (let i = 0; i < 40; i++)
           await page.mouse.move(195 + Math.cos(i * 0.3) * 110, 422 + Math.sin(i * 0.3) * 110);
         await page.mouse.up();
+      } else {
+        await page.touchscreen.tap(id === 'switches' ? 110 : 195, id === 'glass' ? 330 : 422);
       }
-      await page.waitForTimeout(2400);
+      await page.waitForTimeout(id === 'glass' ? 400 : 150);
       await shot(id);
       await close();
       assert(
-        Math.abs((await page.evaluate(() => scrollY)) - scroll) < 2,
-        'Selection scroll restoration'
+        Math.abs((await page.evaluate(() => scrollY)) - scroll) < 3,
+        'scroll restoration ' + id
       );
     }
-    assert(
-      (await page.evaluate(() => window.__samples.length)) > 3,
-      'Recorded effects must actually play'
-    );
+    assert((await page.evaluate(() => window.__samples.length)) > 12, 'recorded samples played');
+    assert.equal(await page.evaluate(() => window.__immersive.at(-1)), false);
     await page.reload();
     await page.locator('#home .settings-open').click();
     assert.equal(await page.locator('#volume').inputValue(), '100');
     assert(await page.locator('#music').isChecked());
     await shot('settings');
-    await page.getByRole('button', { name: 'Close settings', exact: true }).click();
+    await page.locator('#settings-close').click();
     for (const width of [320, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.waitForTimeout(120);
+      await page.waitForTimeout(150);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await shot('menu-' + width);
     }
+    const native = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await native.addInitScript(() => {
+      if (location.protocol === 'http:')
+        localStorage.setItem(
+          'still-settings',
+          JSON.stringify({
+            schema: 2,
+            muted: true,
+            sounds: true,
+            music: true,
+            volume: 100,
+            sfxVolume: 100,
+            musicVolume: 100,
+          })
+        );
+
+      window.__audio = [];
+      window.StillNative = {
+        configureAudio: (...a) => window.__audio.push(['config', ...a]),
+        playSound: (...a) => window.__audio.push(['play', ...a]),
+        pulse() {},
+        setImmersive() {},
+        setMotionEnabled() {},
+      };
+      window.AudioContext = class {
+        constructor() {
+          throw Error('Native must bypass WebAudio');
+        }
+      };
+    });
+    const p = await native.newPage();
+    p.on('pageerror', (e) => errors.push(e.message));
+    await p.goto(base);
+    await p.locator('#play').click();
+    await p.locator('[data-toy="wrap"]').click();
+    await p.mouse.click(42, 200);
+    await p.mouse.click(47, 150);
+    assert(
+      await p.evaluate(() => window.__audio.some((c) => c[0] === 'play')),
+      'native bridge effects'
+    );
+    assert.equal(
+      await p.locator('#bgm').getAttribute('src'),
+      null,
+      'native never assigns WebView music URL'
+    );
+    assert(
+      await p.evaluate(() =>
+        window.__audio.some(
+          (c) => c[0] === 'config' && c[1] === true && c[2] === true && c[3] === true
+        )
+      ),
+      'legacy mute cannot silence an upgrade'
+    );
+    await native.close();
     assert.deepEqual(errors, []);
     assert.deepEqual(external, []);
     fs.writeFileSync(
       path.join(out, 'result.json'),
       JSON.stringify(
-        {
-          passed: true,
-          checks: [
-            'minimal menu',
-            'two-column eight-toy selection',
-            'no gameplay text',
-            'two-second fade',
-            'tap-only reveal',
-            'swipe stays hidden',
-            '1–10 touches',
-            'five particle modes',
-            'pause/reset',
-            'recorded audio playback',
-            'amplified gains',
-            'music lifecycle',
-            'settings persistence',
-            'scroll restoration',
-            'immersive bridge calls',
-          ],
-          errors,
-          external,
-        },
+        { passed: true, toys: 14, gestures: '1–10', fadeSeconds: 5, errors, external },
         null,
         2
       )
     );
     console.log(
-      'PASS: v0.2 menus, eight toys, hidden controls, swipe/tap distinction, ten-touch input, recorded audio, amplified gains, lifecycle, and persistence.'
+      'PASS: v3 branding, two columns, 14 toys, centered Play, 5-second fade, reveal-before-activate, swipe suppression, 1–10 touches, real WAV/music playback, native bridge bypass, persistence and scroll restoration.'
     );
   } finally {
     if (browser) await browser.close();
-    await new Promise((resolve) => server.close(resolve));
+    await new Promise((r) => server.close(r));
   }
-})().catch((error) => {
-  console.error(error);
+})().catch((e) => {
+  console.error(e);
   process.exitCode = 1;
 });

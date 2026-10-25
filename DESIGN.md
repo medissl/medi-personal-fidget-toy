@@ -1,39 +1,51 @@
-# Medi Personal Fidget Toy — design
+# No-No Stress — design
 
-## Layout
+## Direction
 
-Follow the user's concrete Android game layout.
-Home: spinning particles above “Medi Personal Fidget Toy”; circular Play in the middle, random play on its left, menu/settings on its right.
-Selection: exactly two square boxes per row, vertical scrolling, each name in the box's top-left. No descriptions.
-Use a dark blue shell, bold system sans-serif, mint buttons, and simple icons. The toys carry the visual interest. Keep taglines, editorial headings, helper paragraphs, and category badges out of these screens.
+A quiet personal Android toy box with cream woody paper, warm brown Fredoka typography, brick red accents, and tactile full-screen toys. Follow the user's explicit layout and particle references.
 
-## Gameplay chrome
+Home: STRESS inside a red circle/slash emblem above the full title “No-No Stress.” Circular GitHub action left, larger circular Play center, conventional gear for Options right. No cat, tagline, descriptions, or extra actions. The GitHub action opens https://github.com/medissl externally.
 
-The canvas fills the phone. No title, gesture label, description, or button text.
-Back at top-left; pause/audio/reset icons at top-center; settings at top-right.
-Controls and bottom options fade after two seconds without a control interaction.
-A short tap beginning near the top reveals them. Swiping into the top never reveals them. Hidden controls are inert and cannot activate on the wake tap.
-Keyboard Tab reveals controls. Settings pause the toy and audio.
-Android immersive mode hides system bars while playing and restores normal bars in menus. OS edge gestures can reveal transient bars.
+Selection: exactly two square cards per row, scrolling vertically. Each name sits inside its card at the top-left. No descriptions or category headings.
 
-## Toys
+## Gameplay
 
-Stardust: 12,000 particles across the screen initially; adjustable 3,000–18,000. Hold to gather; release the last finger for a charged burst. Cancellation, pause, backgrounding, resize, and exit never cause a burst. Two fingers set an orbit and pinch radius, three a vortex, four separate wells, and five or more repel. Flow, Wave, Gravity, Ribbons, and Electric change the movement. Keep colors saturated and release motion expansive.
-Pond: floating leaves, ripples, touch-driven drift, recorded water.
-Bubble pad: tall reversible silicone pad and recorded pop variations.
-Dial: circular dragging and short recorded detents; bound repeated playback.
-Slime: glossy elastic material, drag/stretch and spring back, recorded wet sounds.
-Buttons: distinct pressed surfaces with recorded mechanical clicks.
-Sand: persistent five-line rake marks; reset clears.
-Cradle: pull an end ball and release to transfer momentum. Bound swings to the viewport.
+Fill the screen with the toy. No title, description, counters, or bottom action bar, except the explicitly requested zipper completion count. Back top-left and Options top-right. No pause, mute, or reset buttons at the top.
 
-## Audio and comfort
+Top controls and toy-specific bottom options fade after five seconds. A short top tap while hidden only reveals. The reveal tap cannot also activate a control or trigger a toy. The next deliberate tap activates. Swipes and holds remain gameplay. Keyboard Tab reveals controls. Settings pause simulation and audio. Android immersive mode hides bars during play; OS edge gestures can reveal temporary bars.
 
-Recorded effects replace synthesized bleeps. Master/SFX/music gains are independent. Normalize short samples, compress peaks, and retain an audible adjustment range. Bound active voices and trigger rates. Offer different music choices.
-Preserve preferences and reduced motion. Keep controls readable when brightness is lowered.
-All runtime assets are local.
+## Stardust
 
-## References and verification
+The shapes are made entirely of moving individual particles. They must not become static drawn orbit outlines. Use rich swarms, thick colored bundles, visible grain, soft halos, loose particles around the bands, and white at convergence and crossings. Keep individual orbit colors coherent, and preserve those colors through release. The supplied Atomus images are the visual acceptance reference; thin wire loops are inadequate.
 
-Official SungLab Atomus/Triple A listings inform particle modes and multitouch; JindoBlu Antistress informs tactile variety. The user's hold/release description is an acceptance criterion. Use original simulations rather than claiming identical proprietary physics.
-Inspect rendered menu, selection, clear gameplay, revealed controls, and settings on phone sizes. Test gesture cancellation, tap-only reveal, timeout, and audio lifecycle. Build with the existing signing key and distinguish browser results from device verification.
+Default 7,200 particles; adjustable 2,400–14,400. Color palettes remain at the bottom, with no five-mode selector. Hold gathers; release the last contact causes an expansive burst. Cancellation never bursts.
+
+Fingers act as moving checkpoints. Particles retain momentum and flow between them; there are no analytic circle, ellipse, atom, or DNA position targets. Moving, pinching, spreading, crossing, and clustering contacts changes the currents. Nearby contact groups can merge or split the flow.
+
+The user's one-to-ten-finger descriptions are observed motifs, not fixed outlines to reproduce. In particular, three contacts must not invoke a perfect circumcircle. Two-contact pinching should remain alive as it compresses and expands. Seven contacts retain the requested directional stream with solid fingertip obstacles.
+
+Preserve the richer glowing appearance preferred during review. Do not thin the field or dim it to make the trajectories tidy. White is strongest at convergence; colored moving grains and loose strands remain visible.
+
+## Tactile toys
+
+Wood carving: horizontal rotating log, round/square/triangle tips, guided silhouette, three randomized designs, falling chips. Carving cannot grow material back.
+
+Metal balls: many spheres, multiple draggable balls, collisions that affect their neighbors, real collision samples, Android tilt.
+
+Slime: full-screen glossy material with actual local indentation and gradual recovery. No isolated elastic egg.
+
+Packaging pop: disposable bubbles stay popped; a fresh sheet follows completion. Bubble pad remains the separate reversible silicone toy.
+
+Zipper: zip upward; completion count appears briefly once, then a new zipper arrives. Recorded zipper sound follows movement.
+
+Carrots: moving knife, falling slices, recorded chop. Glass: ball impact creates individually moving shards with initial slow motion, followed by a fresh pane.
+
+On/off: tactile switches. Pond: leaves, ripples, recorded water. Dial: continuous circular input with bounded recorded clicks. Sand: persistent rake marks.
+
+Cradle: all five balls start completely still. Any ball can be grabbed, including multiple balls at once. Collision response transfers motion and keeps bobs on screen.
+
+## Audio and verification
+
+Recorded, normalized local effects; independent master/effects/music controls. No invisible legacy mute state. Android music uses MediaPlayer and effects use SoundPool, bypassing WebView media interception. Voices and repeated triggers are bounded. Browser fallback uses Web Audio. All runtime audio is offline.
+
+Inspect home, selection, clear gameplay, touch patterns, revealed controls, and settings. Test first-tap suppression, five-second delay, multitouch, release/cancel, upgrade preferences, and audio lifecycle. Physical speaker loudness, haptics, tilt orientation, battery use, and system bars require a phone pass.
