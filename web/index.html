@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#15191e" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Still · a pocket of play</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="home" class="screen home" aria-labelledby="home-title">
+        <header class="topline">
+          <span class="wordmark">still<span class="wordmark-dot">•</span></span
+          ><button
+            class="icon-button settings-open"
+            aria-label="Open sensory settings"
+            data-icon="settings"
+          ></button>
+        </header>
+        <div class="home-art" aria-hidden="true">
+          <canvas id="home-art"></canvas><span class="orbit-label">a pocket of play</span>
+        </div>
+        <div class="home-copy">
+          <p class="eyebrow">RIGHT HERE. AT YOUR PACE.</p>
+          <h1 id="home-title">A little space<br />to just be.</h1>
+          <p>Something to touch. Somewhere to wander.<br />Nothing you need to finish.</p>
+        </div>
+        <div class="home-bottom">
+          <button id="play" class="primary">Play <span data-icon="arrow"></span></button>
+          <p>Yours, even offline.</p>
+        </div>
+      </section>
+
+      <section id="library" class="screen library" aria-labelledby="library-title" hidden>
+        <header class="topline">
+          <button
+            id="home-back"
+            class="icon-button"
+            aria-label="Back to home"
+            data-icon="back"
+          ></button
+          ><span class="wordmark small">still<span class="wordmark-dot">•</span></span
+          ><button
+            class="icon-button settings-open"
+            aria-label="Open sensory settings"
+            data-icon="settings"
+          ></button>
+        </header>
+        <div class="library-heading">
+          <p class="eyebrow">YOUR LITTLE COLLECTION</p>
+          <h1 id="library-title" tabindex="-1">What feels good?</h1>
+          <p>Pick something. Stay as long as you like.</p>
+        </div>
+        <div class="toy-list">
+          <button class="toy-card stardust" data-toy="particles">
+            <span class="toy-art"
+              ><canvas data-preview="particles" aria-hidden="true"></canvas
+              ><span class="toy-tag">FLOW & WANDER</span></span
+            ><span class="toy-caption"
+              ><span
+                ><strong>Stardust</strong
+                ><small>Little lights, following your fingers.</small></span
+              ><span class="card-arrow" data-icon="arrow"></span
+            ></span>
+          </button>
+          <button class="toy-card pond" data-toy="pond">
+            <span class="toy-art"
+              ><canvas data-preview="pond" aria-hidden="true"></canvas
+              ><span class="toy-tag">STIR & DRIFT</span></span
+            ><span class="toy-caption"
+              ><span
+                ><strong>Little pond</strong
+                ><small>Make ripples. Let the leaves drift.</small></span
+              ><span class="card-arrow" data-icon="arrow"></span
+            ></span>
+          </button>
+          <button class="toy-card bubbles" data-toy="bubbles">
+            <span class="toy-art"
+              ><canvas data-preview="bubbles" aria-hidden="true"></canvas
+              ><span class="toy-tag">PRESS & POP</span></span
+            ><span class="toy-caption"
+              ><span
+                ><strong>Bubble pad</strong><small>A soft little pop, again and again.</small></span
+              ><span class="card-arrow" data-icon="arrow"></span
+            ></span>
+          </button>
+          <button class="toy-card dial" data-toy="dial">
+            <span class="toy-art"
+              ><canvas data-preview="dial" aria-hidden="true"></canvas
+              ><span class="toy-tag">TURN & CLICK</span></span
+            ><span class="toy-caption"
+              ><span
+                ><strong>Slow dial</strong><small>Find a rhythm in the little clicks.</small></span
+              ><span class="card-arrow" data-icon="arrow"></span
+            ></span>
+          </button>
+        </div>
+        <p class="library-footer">No scores. No rush. Just play.</p>
+      </section>
+
+      <section id="player" class="screen player" aria-label="Toy player" hidden>
+        <canvas id="playground" tabindex="0" aria-label="Interactive toy"></canvas>
+        <header class="player-top">
+          <button
+            id="close-toy"
+            class="icon-button"
+            aria-label="Close toy and return to collection"
+            data-icon="close"
+          ></button
+          ><span id="toy-title">Stardust</span
+          ><button
+            class="icon-button settings-open"
+            aria-label="Open sensory settings"
+            data-icon="settings"
+          ></button>
+        </header>
+        <div id="gesture-status" class="gesture-status" aria-live="polite">Drift</div>
+        <div class="player-bottom">
+          <div id="toy-options" class="toy-options" aria-label="Toy options"></div>
+          <p id="toy-hint" class="toy-hint"></p>
+          <div class="player-tools">
+            <button
+              id="sound-toggle"
+              class="tool-button"
+              aria-label="Touch sounds"
+              aria-pressed="true"
+            >
+              <span data-icon="sound"></span><span>Sound</span></button
+            ><button id="pause" class="tool-button" aria-label="Pause motion" aria-pressed="false">
+              <span data-icon="pause"></span><span>Pause</span></button
+            ><button id="reset" class="tool-button" aria-label="Reset toy">
+              <span data-icon="reset"></span><span>Reset</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="settings" aria-labelledby="settings-title">
+      <div class="sheet-heading">
+        <div>
+          <p class="eyebrow">MAKE IT YOURS</p>
+          <h2 id="settings-title">A comfortable kind of play.</h2>
+        </div>
+        <button
+          id="settings-close"
+          class="icon-button"
+          aria-label="Close sensory settings"
+          data-icon="close"
+        ></button>
+      </div>
+      <p class="sheet-intro">A little more, a little less. These stay how you leave them.</p>
+      <label class="setting-row"
+        ><span><strong>Touch sounds</strong><small>Pops, clicks, and gentle notes</small></span
+        ><input type="checkbox" id="sounds" role="switch"
+      /></label>
+      <label class="setting-row"
+        ><span><strong>Background music</strong><small>Soft piano · Dream Culture</small></span
+        ><input type="checkbox" id="music" role="switch"
+      /></label>
+      <label class="range-row" for="volume"
+        ><span>Audio volume</span><output id="volume-value"></output
+        ><input id="volume" type="range" min="0" max="100" step="1"
+      /></label>
+      <label class="setting-row"
+        ><span
+          ><strong>Haptics</strong
+          ><small id="haptics-description">Small pulses when you touch</small></span
+        ><input type="checkbox" id="haptics" role="switch"
+      /></label>
+      <label class="range-row" for="haptic-strength"
+        ><span>Haptic strength</span><output id="haptic-value"></output
+        ><input id="haptic-strength" type="range" min="1" max="3" step="1"
+      /></label>
+      <label class="setting-row"
+        ><span
+          ><strong>Gentler motion</strong><small>Slower movement and shorter trails</small></span
+        ><input type="checkbox" id="gentle" role="switch"
+      /></label>
+      <label class="range-row" for="brightness"
+        ><span>Visual brightness</span><output id="brightness-value"></output
+        ><input id="brightness" type="range" min="25" max="100" step="1"
+      /></label>
+      <label class="range-row" for="density"
+        ><span>Particle amount</span><output id="density-value"></output
+        ><input id="density" type="range" min="500" max="3000" step="500"
+      /></label>
+      <details class="credits">
+        <summary>About this little app & music</summary>
+        <p>
+          Still is a personal, offline collection of sensory toys. No accounts, ads, tracking,
+          scores, or online services.
+        </p>
+        <p>
+          “Dream Culture” by Kevin MacLeod (incompetech.com), licensed under Creative Commons
+          Attribution 4.0. Music is bundled on your phone. Toy visuals and touch sounds are
+          generated locally.
+        </p>
+        <p id="storage-note" role="status"></p>
+      </details>
+    </dialog>
+    <div id="notice" role="status" hidden></div>
+    <audio id="bgm" src="audio/dream-culture.mp3" preload="none" loop></audio>
+    <script src="audio.js"></script>
+    <script src="particles.js"></script>
+    <script src="pond.js"></script>
+    <script src="tactile.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

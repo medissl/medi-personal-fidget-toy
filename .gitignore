@@ -1,0 +1,10 @@
+build/
+.local/
+*.apk
+*.idsig
+node_modules/
+test-results/
+.env
+.env.*
+local.properties
+*.log
