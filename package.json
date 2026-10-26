@@ -1,13 +1,14 @@
 {
   "name": "still-personal-fidget-toy",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "A personal offline Android collection of sensory toys",
   "scripts": {
     "start": "node scripts/serve.cjs",
     "check": "node scripts/check.cjs",
     "test": "node scripts/browser-check.cjs",
-    "check:apk": "node scripts/check-apk.cjs"
+    "check:apk": "node scripts/check-apk.cjs",
+    "check:visual": "node scripts/visual-check.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

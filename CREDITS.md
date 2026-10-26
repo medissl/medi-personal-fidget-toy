@@ -22,10 +22,11 @@ All effects are bundled recordings, not synthesized game tones. Edited WAV/OGG c
 - **qubodup**, Slime, CC0: https://freesound.org/people/qubodup/sounds/127449/ — actual sticky slime in a bowl, two edited 0.8-second segments (slime / slime2).
 - **Anthousai**, Single pop, CC0: https://freesound.org/people/Anthousai/sounds/399334/ — packaging bubble-wrap snap (wrap).
 - **tapochqa**, Pop It popping, CC0: https://freesound.org/people/tapochqa/sounds/573314/ — studio recording of a silicone Pop-It, two individual pops (pop / pop2).
-- **OwlStorm**, Bag Zipper, CC0: https://freesound.org/people/OwlStorm/sounds/212180/ — longer movement-controlled zipper texture, replacing repeated short triggers.
+- **bmacphail**, Zipper Zipping Slow.wav, CC0: https://freesound.org/people/bmacphail/sounds/569540/ — two clear moving portions joined without the silent gap, RMS riding, loop crossfade (zipper).
 - **plumaudio**, Laundry Machine Knob Turn, CC0: https://freesound.org/people/plumaudio/sounds/521471/ — individual dial detent.
 - **XfiXy8**, Sand sliding out of shovel slowly, CC0: https://freesound.org/people/XfiXy8/sounds/467301/ — granular sand movement loop, independent from wood carving.
-- **1Kaylin_Dickson**, Sanding wood.wav, **CC BY-NC 3.0**: https://freesound.org/people/1Kaylin_Dickson/sounds/407524/ — edited abrasive wood-grinding loop (carve). Noncommercial use; this recording is excluded from any permissive code license. https://creativecommons.org/licenses/by-nc/3.0/
+- **reg7783**, hand sanding wood, CC0: https://freesound.org/people/reg7783/sounds/726831/ — seconds 8–11, a continuous abrasive wood texture (carve).
+- **gorkemcig**, Lathe Workshop Sound.wav, CC0: https://freesound.org/people/gorkemcig/sounds/624285/ — seconds 39–42, steady machine texture mixed quietly beneath hand sanding; hammer sections excluded (carve).
 - **Till Behrend / TinyWorlds**, Glass Break, CC0: https://opengameart.org/content/glass-break — glass_breaking.wav, full shatter with decay.
 
 Public high-quality preview MP3s were used for the Freesound recordings. Edits include segment selection, mono conversion, low rumble filtering, dynamic compression, RMS balancing, peak limiting, fades and loop crossfades. No original recording is represented as our own recording.
@@ -38,7 +39,7 @@ SungLab / Sung Woo Choi, **StarEngine**, MIT:
 https://github.com/sunglab/StarEngine
 Source revision: 46ef40a9051efd95265386282a06cbfb6ee39186.
 
-The getAVG/getCircleFingers touch geometry in effect/StarParticle.h is adapted to JavaScript in web/particles.js. The engine's paired line-particle representation informs our head/tail renderer. Its copyright and MIT notice are bundled at web/licenses/StarEngine-MIT.txt. Our steering and WebGL shaders are original reconstruction work; the inspected public source does not contain the complete Atomus effect. See ATOMUS_RESEARCH.md.
+The getAVG/getCircleFingers touch geometry in effect/StarParticle.h is adapted to JavaScript in web/particles.js. The active ui/StarView.h sync(LINES) head-to-tail update is adapted into our persistent particle history. The renderer adds several connected, fading history segments and restrained per-particle light halos, keeping the original fine filaments sharp. Its copyright and MIT notice are bundled at web/licenses/StarEngine-MIT.txt. Our steering and WebGL shaders are original reconstruction work; the inspected public source does not contain the complete Atomus effect. See ATOMUS_RESEARCH.md.
 
 ## Font and icons
 
@@ -59,4 +60,4 @@ The user’s supplied particle images and descriptions guide the original simula
 - https://play.google.com/store/apps/details?id=com.sunglab.tripleafree
 - https://play.google.com/store/apps/details?id=com.JindoBlu.Antistress
 
-No application code, music, or imagery was extracted from those apps.
+No proprietary application code, music, or imagery was extracted from those apps. Only the public MIT engine primitives described above are adapted.

@@ -50,12 +50,23 @@
             g.FRAGMENT_SHADER,
             `precision mediump float;uniform sampler2D dye;uniform vec2 texel;uniform float range;varying vec2 uv;
           vec3 ink(vec2 p){return texture2D(dye,clamp(p,texel*.5,1.-texel*.5)).rgb*range;}
+          vec3 smoothInk(vec2 p){
+            vec2 q=p/texel-.5;vec2 base=floor(q),f=fract(q);vec2 f2=f*f,f3=f2*f;
+            vec2 w0=(1.-3.*f+3.*f2-f3)/6.;vec2 w1=(4.-6.*f2+3.*f3)/6.;
+            vec2 w2=(1.+3.*f+3.*f2-3.*f3)/6.;vec2 w3=f3/6.;
+            vec2 a=w0+w1,b=w2+w3;vec2 p0=(base-1.+w1/a+.5)*texel,p1=(base+1.+w3/b+.5)*texel;
+            return ink(p0)*a.x*a.y+ink(vec2(p1.x,p0.y))*b.x*a.y+ink(vec2(p0.x,p1.y))*a.x*b.y+ink(p1)*b.x*b.y;
+          }
           float density(vec2 p){vec3 d=ink(p);return d.r+d.g+d.b;}
-          void main(){vec3 d=ink(uv);float gx=(density(uv+vec2(texel.x,0.))-density(uv-vec2(texel.x,0.)))*2.;
+          void main(){vec3 d=smoothInk(uv);float gx=(density(uv+vec2(texel.x,0.))-density(uv-vec2(texel.x,0.)))*2.;
           float gy=(density(uv+vec2(0.,texel.y))-density(uv-vec2(0.,texel.y)))*2.;
           vec3 n=normalize(vec3(-gx,-gy,1.));float diffuse=max(0.,dot(n,normalize(vec3(-.35,-.45,1.))));
           float spec=pow(max(0.,dot(n,normalize(vec3(-.2,-.3,1.)))),32.)*min(1.,length(vec2(gx,gy)))*.32;
-          vec3 color=(1.-exp(-d*1.15))*(.83+diffuse*.25)+spec;gl_FragColor=vec4(color,1.);}`
+          float hi=max(d.r,max(d.g,d.b));float lo=min(d.r,min(d.g,d.b));
+          vec3 chroma=max(vec3(0.),d-lo*.88)/max(.001,hi-lo*.88);
+          float value=1.-exp(-hi*1.25);
+          vec3 color=chroma*value*(.96+diffuse*.045)+spec*.1;
+          gl_FragColor=vec4(color,1.);}`
           );
         g.attachShader(this.program, vs);
         g.attachShader(this.program, fs);
@@ -142,13 +153,13 @@
   class Lava {
     constructor(ctx, w, h, settings, sound) {
       Object.assign(this, { ctx, w, h, settings, sound });
-      this.palette = 'ember';
+      this.palette = 'rainbow';
       this.time = 0;
       this.reset();
     }
     reset() {
-      this.cols = 112;
-      this.rows = Math.max(24, Math.min(270, Math.round((this.cols * this.h) / this.w)));
+      this.cols = 128;
+      this.rows = Math.max(24, Math.min(300, Math.round((this.cols * this.h) / this.w)));
       if (!this.renderer && window.WebGLRenderingContext) this.renderer = new LiquidSurface();
       const n = this.cols * this.rows;
       this.u = new Float32Array(n);
@@ -161,32 +172,31 @@
       this.curl = new Float32Array(n);
       this.dye = Array.from({ length: 3 }, () => new Float32Array(n));
       this.nextDye = Array.from({ length: 3 }, () => new Float32Array(n));
+      this.reverseDye = new Float32Array(n);
       this.previous = new Map();
       this.surface = document.createElement('canvas');
       this.surface.width = this.cols;
       this.surface.height = this.rows;
       this.surfaceContext = this.surface.getContext('2d');
       this.image = this.surfaceContext.createImageData(this.cols, this.rows);
+      const palette = colors[this.palette];
+      const plumes = [
+        [0.25, 0.2],
+        [0.72, 0.36],
+        [0.3, 0.64],
+        [0.7, 0.82],
+      ];
       for (let y = 0; y < this.rows; y++)
         for (let x = 0; x < this.cols; x++) {
-          const i = y * this.cols + x,
-            a = Math.exp(
-              -(
-                ((x - this.cols * 0.35) / (this.cols * 0.24)) ** 2 +
-                ((y - this.rows * 0.7) / (this.rows * 0.23)) ** 2
-              )
-            ),
-            b = Math.exp(
-              -(
-                ((x - this.cols * 0.68) / (this.cols * 0.2)) ** 2 +
-                ((y - this.rows * 0.3) / (this.rows * 0.2)) ** 2
-              )
-            );
-          this.dye[0][i] = a * 2.7 + b * 1.4;
-          this.dye[1][i] = a * 0.38 + b * 0.07;
-          this.dye[2][i] = a * 0.02 + b * 0.3;
-          this.u[i] = Math.sin(y * 0.06) * 0.09;
-          this.v[i] = Math.cos(x * 0.07) * 0.06;
+          const i = y * this.cols + x;
+          for (let k = 0; k < plumes.length; k++) {
+            const [cx, cy] = plumes[k];
+            const d = ((x / this.cols - cx) / 0.24) ** 2 + ((y / this.rows - cy) / 0.18) ** 2;
+            const f = Math.exp(-d * 1.8) * 2.5;
+            for (let c = 0; c < 3; c++) this.dye[c][i] += palette[k][c] * f;
+          }
+          this.u[i] = Math.sin(y * 0.055) * 0.19;
+          this.v[i] = Math.cos(x * 0.075) * 0.13;
         }
     }
     resize(w, h) {
@@ -213,6 +223,26 @@
             ((source[j] * (1 - fx) + source[j + 1] * fx) * (1 - fy) +
               (source[j + w] * (1 - fx) + source[j + w + 1] * fx) * fy) *
             fade;
+        }
+    }
+    advectDye(source, target, step) {
+      // Limited MacCormack correction preserves sharp color folds that ordinary
+      // bilinear advection washes out. Clamp to the donor cell to prevent ringing.
+      this.advect(source, target, step, 1);
+      this.advect(target, this.reverseDye, -step, 1);
+      const w = this.cols,
+        h = this.rows;
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          const i = y * w + x;
+          const xx = Math.max(0.01, Math.min(w - 1.01, x - this.u[i] * step));
+          const yy = Math.max(0.01, Math.min(h - 1.01, y - this.v[i] * step));
+          const j = Math.floor(yy) * w + Math.floor(xx);
+          const low = Math.min(source[j], source[j + 1], source[j + w], source[j + w + 1]);
+          const high = Math.max(source[j], source[j + 1], source[j + w], source[j + w + 1]);
+          target[i] =
+            Math.max(low, Math.min(high, target[i] + 0.5 * (source[i] - this.reverseDye[i]))) *
+            0.9985;
         }
     }
     update(dt, touches = []) {
@@ -261,7 +291,7 @@
             dx = Math.abs(this.curl[i + 1]) - Math.abs(this.curl[i - 1]),
             dy = Math.abs(this.curl[i + w]) - Math.abs(this.curl[i - w]),
             len = Math.hypot(dx, dy) + 0.0001,
-            force = this.curl[i] * 0.18 * step;
+            force = this.curl[i] * 0.36 * step;
           this.u[i] += (dy / len) * force;
           this.v[i] -= (dx / len) * force + (this.dye[0][i] + this.dye[1][i]) * 0.001 * step;
         }
@@ -306,7 +336,7 @@
         this.u[y * w + w - 1] = 0;
       }
       for (let channel = 0; channel < 3; channel++) {
-        this.advect(this.dye[channel], this.nextDye[channel], step, 0.999);
+        this.advectDye(this.dye[channel], this.nextDye[channel], step);
         [this.dye[channel], this.nextDye[channel]] = [this.nextDye[channel], this.dye[channel]];
       }
     }
@@ -318,6 +348,8 @@
         field = this.dye;
       const densityAt = (i) => field[0][i] + field[1][i] + field[2][i];
       for (let i = 0; i < total; i++) {
+        const hi = Math.max(field[0][i], field[1][i], field[2][i]);
+        const lo = Math.min(field[0][i], field[1][i], field[2][i]);
         const density = densityAt(i),
           x = i % w,
           inside = x > 0 && x < w - 1 && i >= w && i < total - w;
@@ -331,7 +363,12 @@
         for (let c = 0; c < 3; c++)
           data[i * 4 + c] = Math.min(
             255,
-            ((1 - Math.exp(-field[c][i] * 1.15)) * (0.83 + light * 0.23) * wave + shine) * 255
+            ((Math.max(0, field[c][i] - lo * 0.88) / Math.max(0.001, hi - lo * 0.88)) *
+              (1 - Math.exp(-hi * 1.25)) *
+              (0.9 + light * 0.14) *
+              wave +
+              shine * 0.18) *
+              255
           );
         data[i * 4 + 3] = 255;
       }

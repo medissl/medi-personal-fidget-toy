@@ -32,6 +32,8 @@
       };
     }
     nextDesign() {
+      this.sound.stopTexture?.();
+      this.lastCutTime = -Infinity;
       this.designIndex = (this.designIndex + 1) % 3;
       this.goal = Float32Array.from({ length: 100 }, (_, i) => {
         const t = i / 99,
@@ -75,7 +77,7 @@
       if (this.pointer && this.spawn === 1) this.carve(this.toolPoint(this.pointer), dt);
       const error = this.shape.reduce((sum, v, i) => sum + Math.abs(v - this.goal[i]), 0);
       this.accuracy = Math.max(0, 1 - error / this.goal.reduce((sum, v) => sum + v, 0));
-      if (this.accuracy >= 0.95) {
+      if (this.accuracy >= 0.85) {
         this.score++;
         this.scoreFlash = 1.5;
         this.sound.pulse(2);
@@ -155,7 +157,8 @@
         if (this.shape[i] < 0.008 && i > this.start + 1 && i < this.end - 1) cut = i;
       }
       if (removed) {
-        this.sound.carve();
+        this.sound.carve(this.time - this.lastCutTime > 0.18);
+        this.lastCutTime = this.time;
         this.sound.pulse(1);
       }
       if (cut >= 0) this.sever(cut);
@@ -337,7 +340,10 @@
       if (this.pointer?.id === p.id) this.pointer = { ...p };
     }
     up(p) {
-      if (this.pointer?.id === p.id) this.pointer = null;
+      if (this.pointer?.id === p.id) {
+        this.pointer = null;
+        this.sound.stopTexture?.();
+      }
     }
   }
   const silent = { carve() {}, pulse() {} };

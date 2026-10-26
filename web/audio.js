@@ -229,7 +229,14 @@
       this.sample('metal', { duration: 0.15, interval: 160, group: 'clack', volume: 0.75 });
       this.pulse(1);
     }
-    carve() {
+    carve(firstContact = false) {
+      if (firstContact)
+        this.sample('chop', {
+          duration: 0.07,
+          volume: 0.22,
+          interval: 260,
+          group: 'carve-contact',
+        });
       this.texture('carve');
     }
     sand() {

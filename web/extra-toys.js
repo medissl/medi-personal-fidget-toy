@@ -294,6 +294,7 @@
       this.angle = Array(5).fill(0);
       this.velocity = Array(5).fill(0);
       this.drags = new Map();
+      this.restTime = 0;
     }
     resize(w, h) {
       this.w = w;
@@ -368,7 +369,7 @@
             this.angle[i] += delta;
           } else {
             this.velocity[i] += -Math.sin(this.angle[i]) * 11 * step;
-            this.velocity[i] *= Math.pow(0.999, step * 60);
+            this.velocity[i] *= Math.exp(-0.22 * step);
             this.angle[i] += this.velocity[i] * step;
           }
         }
@@ -390,7 +391,10 @@
               if (denom < 0.001) continue;
               const relative = (this.velocity[b] * jb - this.velocity[a] * ja) * length;
               if (relative < -0.01) {
-                const impulse = (-1.998 * relative) / denom;
+                // A held bob absorbs an incoming impact instead of returning energy
+                // to a trapped chain. Free bobs retain the familiar clean transfer.
+                const restitution = held.has(a) || held.has(b) ? 0 : 0.985;
+                const impulse = (-(1 + restitution) * relative) / denom;
                 this.velocity[a] -= (impulse * ia * ja) / length;
                 this.velocity[b] += (impulse * ib * jb) / length;
                 strongest = Math.max(strongest, -relative);
@@ -416,7 +420,26 @@
           this.velocity[i] = Math.max(-2.8, Math.min(2.8, this.velocity[i]));
         }
       }
+      const before = this.angle.slice();
       this.constrain();
+      for (const drag of this.drags.values()) {
+        if (Math.abs(before[drag.index] - this.angle[drag.index]) > 1e-6) {
+          // A blocked, stationary finger must not drive into the same constraint
+          // on every frame. Another pointer move supplies a new command.
+          drag.angle = this.angle[drag.index];
+          this.velocity[drag.index] = 0;
+        }
+      }
+      const quiet = this.angle.every(
+        (a, i) => Math.abs(a) < 0.012 && Math.abs(this.velocity[i]) < 0.045
+      );
+      this.restTime = quiet ? this.restTime + dt : 0;
+      if (this.restTime > 0.25) {
+        this.angle.fill(0);
+        this.velocity.fill(0);
+        for (const drag of this.drags.values()) drag.angle = 0;
+        strongest = 0;
+      }
       if (strongest > 25) {
         if (this.sound.metal) this.sound.metal(Math.min(1, strongest / 250));
         else this.sound.clack();

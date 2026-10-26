@@ -73,6 +73,7 @@
   class MetalBalls {
     constructor(ctx, w, h, settings, sound) {
       Object.assign(this, { ctx, w, h, settings, sound });
+      if (window.ChromeSurface) this.renderer = new window.ChromeSurface();
       this.gx = 0;
       this.gy = 8;
       this.reset();
@@ -184,6 +185,7 @@
       if (strongest > 75) this.sound.metal(Math.min(1, strongest / 500));
     }
     draw() {
+      if (this.renderer?.draw(this.ctx, this.w, this.h, this.balls, this.gx, this.gy)) return;
       const c = this.ctx,
         g = c.createLinearGradient(0, 0, this.w, this.h);
       g.addColorStop(0, '#d9dfd6');
@@ -206,6 +208,9 @@
         c.shadowColor = 'transparent';
         c.shadowOffsetY = 0;
       }
+    }
+    dispose() {
+      this.renderer?.dispose();
     }
     down(p) {
       let nearest = null,
@@ -703,6 +708,7 @@
   function metalPreview(c, w, h) {
     const toy = new MetalBalls(c, w, h, {}, silent);
     toy.draw();
+    toy.dispose();
   }
   function glassPreview(c, w, h) {
     const toy = new GlassBreak(c, w, h, {}, silent);

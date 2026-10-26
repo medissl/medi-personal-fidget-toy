@@ -26,13 +26,13 @@ The user's one-to-ten-finger descriptions are observed motifs, not fixed outline
 
 Preserve density and live motion while keeping fine filaments visible; reserve white for real overlap. The reference shapes must emerge from the finger-driven flow, with no imposed circle or atom outlines.
 
-StarEngine touch centroid/angular ordering/perimeter helpers are adapted under MIT, with notice bundled in web/licenses/StarEngine-MIT.txt. These helpers are public; the complete Atomus effect equations are not. See ATOMUS_RESEARCH.md. Our steering and WebGL trail shaders remain an original reconstruction.
+StarEngine touch centroid/angular ordering/perimeter helpers are adapted under MIT, with notice bundled in web/licenses/StarEngine-MIT.txt. These helpers are public; the complete Atomus effect equations are not. See ATOMUS_RESEARCH.md. The active StarView line head/tail update is adapted into persistent particle history. Our spring fields, checkpoint steering and WebGL shaders remain an original reconstruction. Long holds maintain independent particle energies; compact/collinear touch geometry uses a nondegenerate live spring field. Screen walls apply during holds and release. Release adds an impulse to existing velocity; settling continuously blends forces without a timed scene switch. Gaussian particle halos leave the fine original filaments sharp. A small velocity grid maintains coherent released currents; density-dependent emission lifts sparse filaments without a timed scene switch.
 
 ## Tactile toys
 
-Wood carving: horizontal rotating log with bark, machined chucks, round/square/triangle tips, and three guided silhouettes. Allow carving below the guide and fully through the axis. The smaller severed segment falls; material never grows back. The finger holds the body of the tool with its tip above the finger. A >=95% whole-profile match awards one point, shown briefly; the next log pops in. Empty logs replace immediately without a point.
+Wood carving: horizontal rotating log with bark, machined chucks, round/square/triangle tips, and three guided silhouettes. Allow carving below the guide and fully through the axis. The smaller severed segment falls; material never grows back. The finger holds the body of the tool with its tip above the finger. A >=85% whole-profile match awards one point, shown briefly; the next log pops in. Empty logs replace immediately without a point.
 
-Metal balls: exactly nine large chrome spheres with fixed room reflections and rolling surface scuffs, multiple draggable balls, collisions that affect their neighbors, real collision samples, Android tilt.
+Metal balls: exactly nine large chrome spheres with per-pixel reflected room rays responding to position and tilt, plus rolling surface roughness, multiple draggable balls, collisions that affect their neighbors, real collision samples, Android tilt.
 
 Slime: full-screen glossy material with actual local indentation and gradual recovery. No isolated elastic egg.
 
@@ -40,13 +40,13 @@ Packaging pop: dimensional translucent bubbles flatten into irregular crumpled p
 
 Zipper: large teeth and pull tab fill the screen with fabric. Zip upward to the reachable top edge; completion count appears briefly once, then a new zipper arrives. Recorded zipper sound follows movement.
 
-Liquid lava replaces Carrots. Use connected, advected color plumes with velocity, swirling pressure flow, and touch-driven stirring. Offer the three existing color choices.
+Liquid lava replaces Carrots. Use connected, advected color plumes with velocity, swirling pressure flow, and touch-driven stirring. Rainbow is the default. Limited MacCormack advection preserves color folds; saturated shading and cubic dye interpolation avoid muddy color and blocky highlights. Offer the three existing color choices.
 
 Glass: eight different freestanding glass vessels on one tabletop: tumbler, wine glass, round vase, flute, mug, flared vase, bowl, and decanter. Aim balls at their silhouettes. Glass breaks into slow-motion shards that land on the table. Replace the set only after all eight break, with a staggered fall and settling bounce from above.
 
-On/off: tactile switches. Pond: leaves can be held and moved; ripples and recorded water remain. Dial: continuous circular input with bounded recorded clicks. Sand: persistent rake marks.
+On/off: tactile switches. Pond: leaves can be held and moved without triggering droplets, ripples or water SFX; open water touches splash. Dial: continuous circular input with bounded recorded clicks. Sand: persistent rake marks.
 
-Cradle: all five balls start completely still. Any ball can be grabbed, including multiple balls at once. One incoming bob transfers to one outgoing bob; two transfer to two. Collision response transfers motion, with bounded swing and angular speed. Enforce bob order so strings cannot cross, including when several balls are dragged.
+Cradle: all five balls start completely still. Any ball can be grabbed, including multiple balls at once. One incoming bob transfers to one outgoing bob; two transfer to two. Collision response transfers motion, with bounded swing and angular speed. Enforce bob order so strings cannot cross, including when several balls are dragged. Held bobs absorb collisions; blocked held targets cannot continually inject energy. Damping and a quiet-state threshold bring the chain to exact rest.
 
 ## Audio and verification
 

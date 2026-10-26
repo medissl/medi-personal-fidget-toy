@@ -238,7 +238,7 @@
           dx: picked.x - p.x,
           dy: picked.y - p.y,
         });
-      this.ripple(p);
+      if (!picked) this.ripple(p);
       this.sound.pulse(1);
     }
     move(p) {
@@ -247,7 +247,7 @@
         drag.x = Math.max(8, Math.min(this.w - 8, p.x + drag.dx));
         drag.y = Math.max(20, Math.min(this.h - 20, p.y + drag.dy));
       }
-      this.ripple(p);
+      if (!drag) this.ripple(p);
     }
     up(p, remaining, cancelled) {
       const drag = this.drags.get(p.id);

@@ -23,6 +23,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 No-No Stress adapts getAVG/getCircleFingers touch geometry to JavaScript.
-The paired particle head/tail representation informs its WebGL light trails.
+The active StarView.sync(LINES) head/tail update is adapted into particle history.
+The WebGL renderer extends it with connected fading segments and small particle light halos.
 The simulation, steering rules, and trail shaders are our reconstruction;
 the public engine does not include complete Atomus effect equations.

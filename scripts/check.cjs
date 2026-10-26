@@ -8,7 +8,7 @@ for (const f of fs.readdirSync(path.join(root, 'web')).filter((f) => f.endsWith(
   new vm.Script(read('web/' + f), { filename: f });
 const manifest = read('android/src/main/AndroidManifest.xml');
 assert(!manifest.includes('android.permission.INTERNET'));
-assert(manifest.includes('android:versionCode="5"'));
+assert(manifest.includes('android:versionCode="6"'));
 assert(manifest.includes('android:label="No-No Stress"'));
 const gradient = { addColorStop() {} },
   drawing = new Proxy(
@@ -106,6 +106,101 @@ assert(
     20,
   'moving a checkpoint materially reshapes the flow'
 );
+// Sustained holds keep moving, retain a real band of energies, and preserve
+// the same population through changes of contact geometry.
+const held = new classes.Particles(drawing, 390, 844, { density: 800, gentle: false }, sound);
+const pair = [
+  { id: 1, x: 105, y: 400 },
+  { id: 2, x: 285, y: 445 },
+];
+const population = held.points;
+for (let i = 0; i < 3600; i++) held.update(1 / 60, pair);
+assert.equal(held.points, population, 'long holds do not replace the population');
+const meanSpeed =
+  held.points.reduce((sum, p) => sum + Math.hypot(p.vx, p.vy), 0) / held.points.length;
+assert(meanSpeed > 2, 'one-minute hold stays alive');
+const axis = Math.atan2(45, 180),
+  co = Math.cos(axis),
+  si = Math.sin(axis);
+const band = held.points
+  .filter((p) => p.color === 0)
+  .map((p) => {
+    const x = p.x - 195,
+      y = p.y - 422.5;
+    return Math.hypot(x * co + y * si, (-x * si + y * co) / 0.2);
+  });
+assert(
+  Math.max(...band) - Math.min(...band) > 25,
+  'sustained colored band does not collapse to one trajectory'
+);
+// Identical free swarms must evolve identically across the old 2.2-second
+// timer boundary. Viscosity may change velocity, but that timer cannot do so.
+const twin = new classes.Particles(drawing, 390, 844, { density: 800, gentle: false }, sound);
+twin.points = held.points.map((p) => ({ ...p, history: p.history.slice() }));
+twin.time = held.time;
+held.burstTime = 1 / 120;
+twin.burstTime = 2.2;
+held.update(1 / 60, []);
+twin.update(1 / 60, []);
+assert(
+  held.points.every(
+    (p, i) =>
+      p.x === twin.points[i].x &&
+      p.y === twin.points[i].y &&
+      p.vx === twin.points[i].vx &&
+      p.vy === twin.points[i].vy
+  ),
+  'release-to-drift has no timed velocity replacement'
+);
+const four = [
+  { id: 1, x: 65, y: 270 },
+  { id: 2, x: 120, y: 300 },
+  { id: 3, x: 270, y: 570 },
+  { id: 4, x: 325, y: 600 },
+];
+for (let i = 0; i < 180; i++) held.update(1 / 60, four);
+assert(
+  new Set(held.points.map((p) => p.owner)).size === 4,
+  'new contacts receive particles after a one/two-finger hold'
+);
+held.up({}, 0, true);
+const cancelled = held.points.map((p) => [p.vx, p.vy]);
+held.up({}, 0, true);
+assert(
+  held.points.every((p, i) => p.vx === cancelled[i][0] && p.vy === cancelled[i][1]),
+  'cancellation adds no impulse'
+);
+for (const pose of [
+  [
+    { id: 1, x: 195, y: 422 },
+    { id: 2, x: 195, y: 422 },
+    { id: 3, x: 195, y: 422 },
+  ],
+  [
+    { id: 1, x: 194, y: 422 },
+    { id: 2, x: 195, y: 422 },
+    { id: 3, x: 196, y: 422 },
+  ],
+  [{ id: 1, x: 3, y: 425 }],
+]) {
+  const compact = new classes.Particles(drawing, 390, 844, { density: 400, gentle: false }, sound);
+  for (let i = 0; i < 1200; i++) compact.update(1 / 60, pose);
+  assert(
+    compact.points.reduce((sum, p) => sum + Math.hypot(p.vx, p.vy), 0) / 400 > 1,
+    'compact/edge holds retain motion'
+  );
+  assert(
+    compact.points.every((p) => p.x >= 0 && p.x <= 390 && p.y >= 0 && p.y <= 844),
+    'held currents remain inside continuous screen bounds'
+  );
+  compact.up({}, 0, false);
+  const previous = compact.points.map((p) => ({ x: p.x, y: p.y }));
+  compact.update(1 / 60, []);
+  assert(
+    compact.points.every((p, i) => Math.hypot(p.x - previous[i].x, p.y - previous[i].y) <= 28.01),
+    'edge release cannot snap offscreen particles to a wall'
+  );
+}
 const slime = new classes.Slime(drawing, 390, 844, settings, sound);
 for (let i = 0; i < 100; i++) slime.update(1 / 60, [{ x: 195, y: 422 }]);
 const dent = Math.min(...slime.field);
@@ -162,11 +257,30 @@ for (let n of [1, 2]) {
     'central bobs stay almost still during transfer'
   );
 }
+const resting = new classes.Cradle(drawing, 390, 844, settings, sound);
+resting.angle[0] = -0.5;
+for (let f = 0; f < 3000; f++) resting.update(1 / 60);
+assert(
+  resting.angle.every((a) => a === 0) && resting.velocity.every((v) => v === 0),
+  'cradle dissipates to exact rest'
+);
+const stopped = new classes.Cradle(drawing, 390, 844, settings, sound);
+stopped.angle[4] = 0.5;
+for (let f = 0; f < 40; f++) stopped.update(1 / 60);
+const catchPoint = stopped.positions()[0];
+stopped.down({ id: 1, ...catchPoint });
+const frame = stopped.layout();
+stopped.move({ id: 1, x: frame.start, y: frame.top + frame.length });
+for (let f = 0; f < 1200; f++) stopped.update(1 / 60);
+assert(
+  stopped.velocity.every((v) => Math.abs(v) < 0.001),
+  'holding the chain still does not pump collision energy'
+);
 const scoring = new classes.WoodLathe(drawing, 390, 844, settings, sound);
 assert(scoring.toolPoint({ x: 195, y: 500 }).y < 420, 'finger holds the tool body below the tip');
-scoring.shape.set(scoring.goal.map((v) => v * 1.02));
+scoring.shape.set(scoring.goal.map((v) => v * 1.14));
 scoring.update(1 / 60);
-assert.equal(scoring.score, 1, '95% match awards a point');
+assert.equal(scoring.score, 1, '85% match awards a point');
 assert.equal(scoring.spawn, 0, 'next log starts its entrance');
 scoring.update(1 / 60);
 assert.equal(scoring.score, 1, 'one point per completed log');
@@ -176,7 +290,13 @@ assert(
   scoring.shape.every((v) => v === 1) && scoring.score === 1,
   'empty wood replaces without a point'
 );
-const pond = new classes.Pond(drawing, 390, 844, settings, sound),
+let waterCalls = 0;
+const pond = new classes.Pond(drawing, 390, 844, settings, {
+    water() {
+      waterCalls++;
+    },
+    pulse() {},
+  }),
   l = pond.leaves[0],
   lx = 150,
   ly = 400;
@@ -187,7 +307,14 @@ pond.down({ id: 1, x: lx, y: ly });
 pond.move({ id: 1, x: lx + 70, y: ly + 70 });
 for (let i = 0; i < 30; i++) pond.update(1 / 60, []);
 assert(l.x > lx + 50 && l.y > ly + 50, 'leaf follows a held drag');
+assert.equal(pond.ripples.length, 0, 'grabbing and dragging a leaf does not splash');
+assert.equal(pond.droplets.length, 0, 'leaf drag creates no droplets');
+assert.equal(waterCalls, 0, 'leaf drag does not play a water drop');
 pond.up({ id: 1 });
+pond.lastRipple = -Infinity;
+pond.down({ id: 2, x: 20, y: 150 });
+assert.equal(waterCalls, 1, 'touching open water still splashes');
+pond.up({ id: 2 });
 assert.equal(pond.drags.size, 0);
 assert.equal(new Set(wood.designs.map((s) => s.kind)).size, 3);
 const geo = wood.geometry();
@@ -407,5 +534,5 @@ assert(
 audio.setActive(false);
 assert.equal(calls.at(-1)[1], false, 'native pauses on inactive');
 console.log(
-  'PASS: offline v5, 1–10 fingers, gather/burst, seven-finger obstacles, slime recovery, stationary multi-drag cradle, carving, zipper, wrap, eight glass vessels, fluid flow, metal bounds, WAV headers, native audio routing.'
+  'PASS: offline v6, 1–10 fingers, gather/burst, seven-finger obstacles, slime recovery, stationary multi-drag cradle, carving, zipper, wrap, eight glass vessels, fluid flow, metal bounds, WAV headers, native audio routing.'
 );

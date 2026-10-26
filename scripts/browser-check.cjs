@@ -8,7 +8,7 @@ const { chromium } = require('playwright'),
   const server = createServer();
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = 'http://127.0.0.1:' + server.address().port,
-    out = path.resolve(__dirname, '../test-results/v5');
+    out = path.resolve(__dirname, '../test-results/v6');
   fs.mkdirSync(out, { recursive: true });
   let browser;
   try {
@@ -375,7 +375,7 @@ const { chromium } = require('playwright'),
       )
     );
     console.log(
-      'PASS: v5 branding, two columns, 14 toys, centered Play, 5-second fade, reveal-before-activate, swipe suppression, 1–10 touches, real WAV/music playback, native bridge bypass, persistence and scroll restoration.'
+      'PASS: v6 branding, two columns, 14 toys, centered Play, 5-second fade, reveal-before-activate, swipe suppression, 1–10 touches, real WAV/music playback, native bridge bypass, persistence and scroll restoration.'
     );
   } finally {
     if (browser) await browser.close();
