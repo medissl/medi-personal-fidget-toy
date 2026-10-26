@@ -8,7 +8,7 @@ for (const f of fs.readdirSync(path.join(root, 'web')).filter((f) => f.endsWith(
   new vm.Script(read('web/' + f), { filename: f });
 const manifest = read('android/src/main/AndroidManifest.xml');
 assert(!manifest.includes('android.permission.INTERNET'));
-assert(manifest.includes('android:versionCode="4"'));
+assert(manifest.includes('android:versionCode="5"'));
 assert(manifest.includes('android:label="No-No Stress"'));
 const gradient = { addColorStop() {} },
   drawing = new Proxy(
@@ -39,6 +39,7 @@ for (const f of [
   'physics-toys.js',
   'everyday-toys.js',
   'fluid-toys.js',
+  'pond.js',
 ])
   vm.runInContext(read('web/' + f), box);
 const settings = { density: 3000, gentle: false },
@@ -144,6 +145,50 @@ for (const [w, h] of [
   cradle.draw();
 }
 const wood = new classes.WoodLathe(drawing, 390, 844, settings, sound);
+for (let n of [1, 2]) {
+  const c = new classes.Cradle(drawing, 390, 844, settings, sound);
+  for (let i = 0; i < n; i++) c.angle[i] = -0.5;
+  const peaks = Array(5).fill(0);
+  for (let f = 0; f < 70; f++) {
+    c.update(1 / 60);
+    c.angle.forEach((a, i) => (peaks[i] = Math.max(peaks[i], a)));
+  }
+  assert(
+    peaks.slice(5 - n).every((a) => a > 0.4),
+    'matching number of opposite bobs swings out'
+  );
+  assert(
+    peaks.slice(0, 5 - n).every((a) => a < 0.025),
+    'central bobs stay almost still during transfer'
+  );
+}
+const scoring = new classes.WoodLathe(drawing, 390, 844, settings, sound);
+assert(scoring.toolPoint({ x: 195, y: 500 }).y < 420, 'finger holds the tool body below the tip');
+scoring.shape.set(scoring.goal.map((v) => v * 1.02));
+scoring.update(1 / 60);
+assert.equal(scoring.score, 1, '95% match awards a point');
+assert.equal(scoring.spawn, 0, 'next log starts its entrance');
+scoring.update(1 / 60);
+assert.equal(scoring.score, 1, 'one point per completed log');
+scoring.shape.fill(0);
+scoring.update(1 / 60);
+assert(
+  scoring.shape.every((v) => v === 1) && scoring.score === 1,
+  'empty wood replaces without a point'
+);
+const pond = new classes.Pond(drawing, 390, 844, settings, sound),
+  l = pond.leaves[0],
+  lx = 150,
+  ly = 400;
+l.x = lx;
+l.y = ly;
+pond.leaves = [l];
+pond.down({ id: 1, x: lx, y: ly });
+pond.move({ id: 1, x: lx + 70, y: ly + 70 });
+for (let i = 0; i < 30; i++) pond.update(1 / 60, []);
+assert(l.x > lx + 50 && l.y > ly + 50, 'leaf follows a held drag');
+pond.up({ id: 1 });
+assert.equal(pond.drags.size, 0);
 assert.equal(new Set(wood.designs.map((s) => s.kind)).size, 3);
 const geo = wood.geometry();
 wood.carve({ x: 195, y: geo.cy }, 1 / 60);
@@ -170,6 +215,15 @@ wrap.down({ x: g.x, y: g.y });
 wrap.down({ x: g.x, y: g.y });
 assert(wrap.cells[0], 'wrap stays popped');
 const glass = new classes.GlassBreak(drawing, 390, 844, settings, sound);
+assert(
+  glass.objects.every((p) => p.offset < 0),
+  'glass enters from above'
+);
+for (let i = 0; i < 90; i++) glass.update(1 / 60);
+assert(
+  glass.objects.every((p) => p.offset === 0),
+  'glass settles on the table'
+);
 assert.equal(glass.objects.length, 8);
 assert.equal(new Set(glass.objects.map((p) => p.kind)).size, 8, 'eight different vessels');
 let object = glass.objects[0];
@@ -198,10 +252,15 @@ assert(
   'fresh table after all eight'
 );
 const fluid = new classes.Lava(drawing, 390, 844, settings, sound),
-  beforeFluid = fluid.dye[0].reduce((a, b) => a + b, 0);
-for (let i = 0; i < 30; i++)
+  idleFluid = new classes.Lava(drawing, 390, 844, settings, sound);
+for (let i = 0; i < 30; i++) {
   fluid.update(1 / 60, [{ id: 1, x: 100 + i * 4, y: 430 + Math.sin(i * 0.2) * 50 }]);
-assert(fluid.dye[0].reduce((a, b) => a + b, 0) > beforeFluid, 'touch feeds the liquid');
+  idleFluid.update(1 / 60, []);
+}
+assert(
+  fluid.dye[0].reduce((a, b) => a + b, 0) > idleFluid.dye[0].reduce((a, b) => a + b, 0),
+  'touch feeds the liquid relative to its unperturbed state'
+);
 assert(
   fluid.u.some((v) => Math.abs(v) > 0.15),
   'drag stirs the liquid'
@@ -219,6 +278,7 @@ assert(
   'cutting below the guide is allowed'
 );
 const metal = new classes.MetalBalls(drawing, 390, 844, settings, sound);
+assert.equal(metal.balls.length, 9, 'exactly nine large metal balls');
 metal.setTilt(10, -10);
 for (let i = 0; i < 300; i++) metal.update(1 / 60);
 for (const b of metal.balls)
@@ -260,6 +320,8 @@ for (const name of [
   'metal',
   'zipper',
   'carve',
+  'sand',
+  'dial',
   'chop',
   'glass',
   'clink',
@@ -300,6 +362,7 @@ const calls = [],
       StillNative: {
         configureAudio: (...a) => calls.push(['configure', ...a]),
         playSound: (...a) => calls.push(['play', ...a]),
+        setTexture: (...a) => calls.push(['texture', ...a]),
       },
     },
     document: { getElementById: () => ({ addEventListener() {} }) },
@@ -323,6 +386,19 @@ const audio = new audioBox.window.Soundscape(
 audio.setActive(true);
 audio.unlock();
 audio.click();
+audio.carve();
+audio.sand();
+audio.zip();
+assert.deepEqual(
+  calls.filter((c) => c[0] === 'texture').map((c) => c[1]),
+  ['carve', 'sand', 'zipper'],
+  'movement textures have their own native path'
+);
+audio.switch(false);
+assert(
+  calls.some((c) => c[0] === 'play' && c[1] === 'switch'),
+  'switch-off uses the same physical switch recording'
+);
 assert.equal(audio.context, null, 'native never needs WebAudio');
 assert(
   calls.some((c) => c[0] === 'play' && c[1] === 'click'),
@@ -331,5 +407,5 @@ assert(
 audio.setActive(false);
 assert.equal(calls.at(-1)[1], false, 'native pauses on inactive');
 console.log(
-  'PASS: offline v4, 1–10 fingers, gather/burst, seven-finger obstacles, slime recovery, stationary multi-drag cradle, carving, zipper, wrap, eight glass vessels, fluid flow, metal bounds, WAV headers, native audio routing.'
+  'PASS: offline v5, 1–10 fingers, gather/burst, seven-finger obstacles, slime recovery, stationary multi-drag cradle, carving, zipper, wrap, eight glass vessels, fluid flow, metal bounds, WAV headers, native audio routing.'
 );

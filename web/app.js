@@ -105,7 +105,7 @@
     $('toy-list').append(button);
   }
   const canvas = $('playground'),
-    ctx = canvas.getContext('2d', { alpha: false });
+    ctx = canvas.getContext('2d', { alpha: true });
   let screen = 'home',
     currentId = null,
     toy = null,
@@ -377,7 +377,10 @@
       startX: event.clientX,
       startY: event.clientY,
       moved: false,
-      wake: $('player').classList.contains('controls-hidden') && event.clientY < 100,
+      wake:
+        $('player').classList.contains('controls-hidden') &&
+        (event.clientY < 100 ||
+          ($('toy-options').childElementCount > 0 && event.clientY > innerHeight - 110)),
       playing: false,
     };
     canvas.setPointerCapture(p.id);

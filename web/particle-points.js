@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  // Render actual points on a fresh black frame. No history buffer or drawn orbit.
+  // Fresh black frames with individual particle heads and short, curved motion histories.
   class ParticlePoints {
     constructor() {
       this.canvas = document.createElement('canvas');
@@ -25,7 +25,7 @@
         );
         const fragment = shader(
           g.FRAGMENT_SHADER,
-          'precision mediump float;varying vec3 color;void main(){float r=length(gl_PointCoord*2.0-1.0);if(r>1.0)discard;float light=exp(-r*r*6.0)*0.9;gl_FragColor=vec4(color,light);}'
+          'precision mediump float;varying vec3 color;void main(){float r=length(gl_PointCoord*2.0-1.0);if(r>1.0)discard;gl_FragColor=vec4(color,exp(-r*r*6.)*.3);}'
         );
         this.program = g.createProgram();
         g.attachShader(this.program, vertex);
@@ -44,6 +44,29 @@
         this.resolution = g.getUniformLocation(this.program, 'resolution');
         this.scale = g.getUniformLocation(this.program, 'scale');
         this.colors = g.getUniformLocation(this.program, 'colors[0]');
+        const tv = shader(
+            g.VERTEX_SHADER,
+            `attribute vec4 vertex;uniform vec2 resolution;uniform vec3 colors[4];varying vec3 color;varying float opacity;
+          void main(){gl_Position=vec4(vertex.x/resolution.x*2.-1.,1.-vertex.y/resolution.y*2.,0.,1.);
+          color=vertex.z<.5?colors[0]:vertex.z<1.5?colors[1]:vertex.z<2.5?colors[2]:colors[3];opacity=vertex.w;}`
+          ),
+          tf = shader(
+            g.FRAGMENT_SHADER,
+            'precision mediump float;varying vec3 color;varying float opacity;void main(){gl_FragColor=vec4(color,opacity*.32);}'
+          );
+        this.trailProgram = g.createProgram();
+        g.attachShader(this.trailProgram, tv);
+        g.attachShader(this.trailProgram, tf);
+        g.linkProgram(this.trailProgram);
+        if (!g.getProgramParameter(this.trailProgram, g.LINK_STATUS))
+          throw Error(g.getProgramInfoLog(this.trailProgram));
+        g.deleteShader(tv);
+        g.deleteShader(tf);
+        this.trailBuffer = g.createBuffer();
+        this.trailResolution = g.getUniformLocation(this.trailProgram, 'resolution');
+        this.trailColors = g.getUniformLocation(this.trailProgram, 'colors[0]');
+        this.trailAttribute = g.getAttribLocation(this.trailProgram, 'vertex');
+        this.lineWidthRange = g.getParameter(g.ALIASED_LINE_WIDTH_RANGE);
         g.enable(g.BLEND);
         g.blendFunc(g.SRC_ALPHA, g.ONE);
         g.clearColor(0, 0, 0, 1);
@@ -55,6 +78,8 @@
     draw(ctx, w, h, points, palette) {
       const g = this.gl;
       if (!g || g.isContextLost()) return false;
+      g.useProgram(this.program);
+      g.bindBuffer(g.ARRAY_BUFFER, this.buffer);
       const dpr = Math.min(window.devicePixelRatio || 1, 2),
         width = Math.round(w * dpr),
         height = Math.round(h * dpr);
@@ -73,26 +98,65 @@
         this.data[j] = p.x;
         this.data[j + 1] = p.y;
         this.data[j + 2] = p.color;
-        this.data[j + 3] = 2.5 + (p.i % 5) * 0.23;
+        this.data[j + 3] = 2.4 + (p.i % 5) * 0.12;
       }
       g.uniform2f(this.resolution, w, h);
       g.uniform1f(this.scale, dpr);
-      if (this.palette !== palette) {
-        g.uniform3fv(
-          this.colors,
-          new Float32Array(
-            palette.flatMap((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255))
-          )
-        );
-        this.palette = palette;
-      }
+      const colors = new Float32Array(
+        palette.flatMap((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255))
+      );
+      g.uniform3fv(this.colors, colors);
       g.clear(g.COLOR_BUFFER_BIT);
+      if (points[0]?.history) this.drawTrails(points, w, h, colors);
+      g.useProgram(this.program);
+      g.bindBuffer(g.ARRAY_BUFFER, this.buffer);
+      const point = g.getAttribLocation(this.program, 'point');
+      g.enableVertexAttribArray(point);
+      g.vertexAttribPointer(point, 4, g.FLOAT, false, 16, 0);
       g.bufferSubData(g.ARRAY_BUFFER, 0, this.data);
       g.drawArrays(g.POINTS, 0, points.length);
-      ctx.drawImage(this.canvas, 0, 0, w, h);
+      if (ctx.canvas?.id === 'playground') {
+        if (!this.canvas.isConnected) {
+          this.canvas.className = 'toy-gpu';
+          this.canvas.setAttribute('aria-hidden', 'true');
+          ctx.canvas.before(this.canvas);
+        }
+        this.canvas.style.filter = ctx.canvas.style.filter;
+      } else ctx.drawImage(this.canvas, 0, 0, w, h);
       return true;
     }
+    drawTrails(points, w, h, colors) {
+      const g = this.gl;
+      if (!this.trails || this.trails.length !== points.length * 8)
+        this.trails = new Float32Array(points.length * 8);
+      let at = 0;
+      for (const p of points) {
+        const dx = p.history[10] - p.x,
+          dy = p.history[11] - p.y,
+          d = Math.hypot(dx, dy),
+          limit = d > 32 ? 32 / d : 1;
+        this.trails[at++] = p.x;
+        this.trails[at++] = p.y;
+        this.trails[at++] = p.color;
+        this.trails[at++] = 1;
+        this.trails[at++] = p.x + dx * limit;
+        this.trails[at++] = p.y + dy * limit;
+        this.trails[at++] = p.color;
+        this.trails[at++] = 0.12;
+      }
+      g.useProgram(this.trailProgram);
+      g.uniform2f(this.trailResolution, w, h);
+      g.uniform3fv(this.trailColors, colors);
+      g.bindBuffer(g.ARRAY_BUFFER, this.trailBuffer);
+      g.bufferData(g.ARRAY_BUFFER, this.trails, g.DYNAMIC_DRAW);
+      g.enableVertexAttribArray(this.trailAttribute);
+      g.vertexAttribPointer(this.trailAttribute, 4, g.FLOAT, false, 16, 0);
+      g.lineWidth(Math.min(this.lineWidthRange[1], Math.min(window.devicePixelRatio || 1, 2)));
+      g.drawArrays(g.LINES, 0, points.length * 2);
+      g.disableVertexAttribArray(this.trailAttribute);
+    }
     dispose() {
+      this.canvas.remove();
       this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
       this.canvas.width = 1;
       this.canvas.height = 1;

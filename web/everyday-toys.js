@@ -299,11 +299,15 @@
         this.complete = true;
         this.flash = 1.1;
         this.pointer = null;
+        this.sound.stopTexture?.();
         this.sound.pulse(2);
       }
     }
     up(p) {
-      if (p.id === this.pointer) this.pointer = null;
+      if (p.id === this.pointer) {
+        this.pointer = null;
+        this.sound.stopTexture?.();
+      }
     }
   }
   const silent = { packaging() {}, zip() {}, pulse() {}, chop() {} };

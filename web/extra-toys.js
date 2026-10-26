@@ -279,7 +279,7 @@
         c.stroke();
       }
       this.previous.set(p.id, { x: p.x, y: p.y });
-      this.sound.carve?.();
+      this.sound.sand?.();
     }
     up(p) {
       this.previous.delete(p.id);
@@ -304,7 +304,7 @@
     layout() {
       const r = Math.min(this.w / 20, this.h / 18, 30),
         length = Math.min(this.w * 0.4, this.h * 0.35),
-        start = this.w / 2 - r * 4.1;
+        start = this.w / 2 - r * 4;
       return {
         r,
         length,
@@ -317,25 +317,34 @@
       const limit = Math.min(0.68, this.layout().maxAngle);
       return Math.max(-limit, Math.min(limit, a));
     }
-    constrain(){
+    constrain() {
       // Weighted monotone projection keeps bob order without swapping identities.
-      const held=new Set(Array.from(this.drags.values()).map(d=>d.index)),blocks=[];
-      for(let i=0;i<5;i++){
-        const weight=held.has(i)?12:1;blocks.push({start:i,end:i,weight,angle:this.angle[i]*weight,velocity:this.velocity[i]*weight});
-        while(blocks.length>1){
-          const b=blocks[blocks.length-1],a=blocks[blocks.length-2];
-          if(a.angle/a.weight<=b.angle/b.weight)break;
-          blocks.splice(-2,2,{start:a.start,end:b.end,weight:a.weight+b.weight,angle:a.angle+b.angle,velocity:a.velocity+b.velocity});
+      const held = new Set(Array.from(this.drags.values()).map((d) => d.index)),
+        blocks = [];
+      for (let i = 0; i < 5; i++) {
+        const weight = held.has(i) ? 12 : 1;
+        blocks.push({ start: i, end: i, weight, angle: this.angle[i] * weight });
+        while (blocks.length > 1) {
+          const b = blocks[blocks.length - 1],
+            a = blocks[blocks.length - 2];
+          if (a.angle / a.weight <= b.angle / b.weight) break;
+          blocks.splice(-2, 2, {
+            start: a.start,
+            end: b.end,
+            weight: a.weight + b.weight,
+            angle: a.angle + b.angle,
+          });
         }
       }
-      for(const block of blocks)for(let i=block.start;i<=block.end;i++){
-        this.angle[i]=block.angle/block.weight;this.velocity[i]=block.velocity/block.weight*(block.start===block.end?1:.96);
-      }
+      for (const block of blocks)
+        for (let i = block.start; i <= block.end; i++) {
+          this.angle[i] = block.angle / block.weight;
+        }
     }
     positions() {
       const { r, start, length, top } = this.layout();
       return this.angle.map((a, i) => ({
-        x: start + i * r * 2.05 + Math.sin(a) * length,
+        x: start + i * r * 2 + Math.sin(a) * length,
         y: top + Math.cos(a) * length,
         tx: Math.cos(a),
         ty: -Math.sin(a),
@@ -343,7 +352,7 @@
     }
     update(dt) {
       dt = Math.min(dt, 0.033) * (this.settings.gentle ? 0.6 : 1);
-      const { r, length } = this.layout(),
+      const { r, length, start, top } = this.layout(),
         steps = Math.ceil(dt * 240),
         step = dt / Math.max(1, steps),
         held = new Map(Array.from(this.drags.values()).map((d) => [d.index, d]));
@@ -363,14 +372,14 @@
             this.angle[i] += this.velocity[i] * step;
           }
         }
-        for (let iteration = 0; iteration < 5; iteration++) {
+        for (let iteration = 0; iteration < 10; iteration++) {
           const p = this.positions();
           for (let a = 0; a < 5; a++)
             for (let b = a + 1; b < 5; b++) {
               const dx = p[b].x - p[a].x,
                 dy = p[b].y - p[a].y,
                 d = Math.hypot(dx, dy);
-              if (d >= r * 2 || d < 0.001) continue;
+              if (d > r * 2 + 0.02 || d < 0.001) continue;
               const nx = dx / d,
                 ny = dy / d,
                 ja = p[a].tx * nx + p[a].ty * ny,
@@ -380,15 +389,24 @@
                 denom = ia * ja * ja + ib * jb * jb;
               if (denom < 0.001) continue;
               const relative = (this.velocity[b] * jb - this.velocity[a] * ja) * length;
-              if (relative < 0) {
-                const impulse = (-1.96 * relative) / denom;
+              if (relative < -0.01) {
+                const impulse = (-1.998 * relative) / denom;
                 this.velocity[a] -= (impulse * ia * ja) / length;
                 this.velocity[b] += (impulse * ib * jb) / length;
                 strongest = Math.max(strongest, -relative);
               }
-              const correction = ((r * 2 - d) * 0.65) / denom;
+              const correction = (Math.max(0, r * 2 - d - 1e-7) * 0.8) / denom;
               this.angle[a] -= (correction * ia * ja) / length;
               this.angle[b] += (correction * ib * jb) / length;
+              if (correction > 0)
+                for (const index of [a, b]) {
+                  const angle = this.angle[index],
+                    bob = p[index];
+                  bob.x = start + index * r * 2 + Math.sin(angle) * length;
+                  bob.y = top + Math.cos(angle) * length;
+                  bob.tx = Math.cos(angle);
+                  bob.ty = -Math.sin(angle);
+                }
             }
         }
         for (let i = 0; i < 5; i++) {
@@ -421,7 +439,7 @@
       c.lineTo(this.w * 0.91, top - 16);
       c.stroke();
       for (let i = 0; i < 5; i++) {
-        const pivot = start + i * r * 2.05,
+        const pivot = start + i * r * 2,
           a = this.angle[i],
           x = pivot + Math.sin(a) * length,
           y = top + Math.cos(a) * length;
@@ -473,7 +491,7 @@
       const drag = this.drags.get(p.id);
       if (!drag) return;
       const { start, r, top } = this.layout(),
-        pivot = start + drag.index * r * 2.05;
+        pivot = start + drag.index * r * 2;
       drag.angle = this.limit(drag.index, Math.atan2(p.x - pivot, Math.max(10, p.y - top)));
     }
     up(p, remaining, cancelled) {

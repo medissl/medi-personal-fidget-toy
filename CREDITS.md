@@ -14,35 +14,31 @@ Tracks are loudness-normalized to approximately -16 LUFS, peak-limited, and re-e
 
 ## Recorded effects
 
-Kenney Interface Sounds (CC0): https://kenney.nl/assets/interface-sounds
-- click: click_001.ogg
-- switch: switch_001.ogg
-- toggle: toggle_002.ogg
-- wrap: drop_004.ogg
-- space: glass_001.ogg, pitched as a soft touch chime
+All effects are bundled recordings, not synthesized game tones. Edited WAV/OGG copies are mono, trimmed/faded, level-balanced and peak-limited. Sustained recordings have crossfaded loop boundaries. Playback rates and gains are bounded; music stays at approximately -16 LUFS.
 
-Kenney Impact Sounds (CC0): https://kenney.nl/assets/impact-sounds
-- metal: impactMetal_light_000.ogg
-- clink: impactMetal_light_002.ogg
-- chop: impactWood_medium_000.ogg
+- **Kenney**, Interface Sounds, CC0: https://kenney.nl/assets/interface-sounds — click_001 (menu), switch_001 (both switch directions). Legacy toggle/space assets remain credited to this pack.
+- **Kenney**, Impact Sounds, CC0: https://kenney.nl/assets/impact-sounds — impactMetal_medium_001 (clink, replacing the old light-metal effect), impactMetal_light_000 (legacy metal), impactWood_medium_000 (detaching wood).
+- **rubberduck**, 40 CC0 water / splash / slime SFX, CC0: https://opengameart.org/content/40-cc0-water-splash-slime-sfx — splash_09 / splash_10 for the pond. These water sounds are retained.
+- **qubodup**, Slime, CC0: https://freesound.org/people/qubodup/sounds/127449/ — actual sticky slime in a bowl, two edited 0.8-second segments (slime / slime2).
+- **Anthousai**, Single pop, CC0: https://freesound.org/people/Anthousai/sounds/399334/ — packaging bubble-wrap snap (wrap).
+- **tapochqa**, Pop It popping, CC0: https://freesound.org/people/tapochqa/sounds/573314/ — studio recording of a silicone Pop-It, two individual pops (pop / pop2).
+- **OwlStorm**, Bag Zipper, CC0: https://freesound.org/people/OwlStorm/sounds/212180/ — longer movement-controlled zipper texture, replacing repeated short triggers.
+- **plumaudio**, Laundry Machine Knob Turn, CC0: https://freesound.org/people/plumaudio/sounds/521471/ — individual dial detent.
+- **XfiXy8**, Sand sliding out of shovel slowly, CC0: https://freesound.org/people/XfiXy8/sounds/467301/ — granular sand movement loop, independent from wood carving.
+- **1Kaylin_Dickson**, Sanding wood.wav, **CC BY-NC 3.0**: https://freesound.org/people/1Kaylin_Dickson/sounds/407524/ — edited abrasive wood-grinding loop (carve). Noncommercial use; this recording is excluded from any permissive code license. https://creativecommons.org/licenses/by-nc/3.0/
+- **Till Behrend / TinyWorlds**, Glass Break, CC0: https://opengameart.org/content/glass-break — glass_breaking.wav, full shatter with decay.
 
-rubberduck, “40 CC0 water / splash / slime SFX” (CC0):
-https://opengameart.org/content/40-cc0-water-splash-slime-sfx
-- water / water2: splash_09.ogg / splash_10.ogg
-- pop / pop2: bubble_02.ogg / bubble_03.ogg
-- slime / slime2: slime_03.ogg / slime_07.ogg
+Public high-quality preview MP3s were used for the Freesound recordings. Edits include segment selection, mono conversion, low rumble filtering, dynamic compression, RMS balancing, peak limiting, fades and loop crossfades. No original recording is represented as our own recording.
 
-AntumDeluge, “Zipper” (CC0): https://opengameart.org/content/zipper
-- zipper: zipper-1.ogg
-
-Till Behrend / TinyWorlds, Glass Break (CC0): https://opengameart.org/content/glass-break
-- glass.wav and glass.ogg: derived from glass_breaking.wav; full shatter with decay.
-
-StarNinjas, Saw or Wood Impact (CC0): https://opengameart.org/content/saw-or-wood-impact
-- carve.ogg: saw_-_starninjas_0.ogg; carve.wav is a short wood-rubbing segment.
-
-Source OGGs and derived PCM16 WAVs are bundled (glass.ogg was converted from WAV). WAVs are trimmed and faded, then balanced with measured RMS gain and look-ahead peak limiting. Peaks remain below clipping. Sustained trigger rates are bounded to avoid piling up zipper or scrape noise. Playback also adjusts gain/rate and bounds concurrent voices and trigger frequency. Native Android uses direct WAV assets; browser playback has a compressor.
 CC0: https://creativecommons.org/publicdomain/zero/1.0/
+
+## StarEngine source adaptation
+
+SungLab / Sung Woo Choi, **StarEngine**, MIT:
+https://github.com/sunglab/StarEngine
+Source revision: 46ef40a9051efd95265386282a06cbfb6ee39186.
+
+The getAVG/getCircleFingers touch geometry in effect/StarParticle.h is adapted to JavaScript in web/particles.js. The engine's paired line-particle representation informs our head/tail renderer. Its copyright and MIT notice are bundled at web/licenses/StarEngine-MIT.txt. Our steering and WebGL shaders are original reconstruction work; the inspected public source does not contain the complete Atomus effect. See ATOMUS_RESEARCH.md.
 
 ## Font and icons
 

@@ -136,6 +136,10 @@ public final class MainActivity extends Activity implements SensorEventListener 
     @JavascriptInterface public void playSound(String name,double volume,double rate) {
         runOnUiThread(() -> audio.play(name,volume,rate));
     }
+    @JavascriptInterface public void setTexture(String name,double volume,double rate) {
+        runOnUiThread(() -> audio.texture(name,volume,rate));
+    }
+    @JavascriptInterface public void stopTexture() { runOnUiThread(() -> audio.stopTexture()); }
     @JavascriptInterface public void setMotionEnabled(boolean value) {
         runOnUiThread(() -> {motionEnabled=value;updateMotion();});
     }

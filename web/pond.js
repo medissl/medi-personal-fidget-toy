@@ -92,6 +92,7 @@
     reset() {
       this.ripples = [];
       this.droplets = [];
+      this.drags = new Map();
       this.leaves = Array.from({ length: 9 }, (_, i) => ({
         x: this.w * (0.15 + Math.random() * 0.7),
         y: this.h * (0.05 + Math.random() * 0.9),
@@ -121,6 +122,15 @@
       this.droplets = this.droplets.filter((p) => p.life > 0 && p.y < p.startY + 15);
       for (let i = 0; i < this.leaves.length; i++) {
         const l = this.leaves[i];
+        const held = Array.from(this.drags.values()).find((d) => d.leaf === l);
+        if (held) {
+          l.vx = (held.x - l.x) * 12;
+          l.vy = (held.y - l.y) * 12;
+          l.x += l.vx * Math.min(dt, 0.05);
+          l.y += l.vy * Math.min(dt, 0.05);
+          l.angle += l.vx * dt * 0.002;
+          continue;
+        }
         l.vx += Math.sin(this.time * 0.3 + i) * dt * 1.4;
         l.vy += Math.cos(this.time * 0.2 + i) * dt;
         for (const p of touches) {
@@ -212,11 +222,37 @@
       this.sound.water();
     }
     down(p) {
+      const picked = [...this.leaves].reverse().find((l) => {
+        if (Array.from(this.drags.values()).some((d) => d.leaf === l)) return false;
+        const dx = p.x - l.x,
+          dy = p.y - l.y,
+          x = dx * Math.cos(l.angle) + dy * Math.sin(l.angle),
+          y = -dx * Math.sin(l.angle) + dy * Math.cos(l.angle);
+        return (x / (l.size + 8)) ** 2 + (y / (l.size * 0.6 + 8)) ** 2 < 1;
+      });
+      if (picked)
+        this.drags.set(p.id, {
+          leaf: picked,
+          x: picked.x,
+          y: picked.y,
+          dx: picked.x - p.x,
+          dy: picked.y - p.y,
+        });
       this.ripple(p);
       this.sound.pulse(1);
     }
     move(p) {
+      const drag = this.drags.get(p.id);
+      if (drag) {
+        drag.x = Math.max(8, Math.min(this.w - 8, p.x + drag.dx));
+        drag.y = Math.max(20, Math.min(this.h - 20, p.y + drag.dy));
+      }
       this.ripple(p);
+    }
+    up(p, remaining, cancelled) {
+      const drag = this.drags.get(p.id);
+      if (drag && cancelled) drag.leaf.vx = drag.leaf.vy = 0;
+      this.drags.delete(p.id);
     }
   }
   function pondPreview(c, w, h) {

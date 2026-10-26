@@ -2,11 +2,12 @@
   'use strict';
   const TAU = Math.PI * 2;
   const chromeSprites = new Map();
-  function sphere(c, x, y, r) {
-    const key = Math.round(r * 2) / 2;
+  function sphere(c, x, y, r, rotation = 0) {
+    const radius = Math.round(r * 2) / 2,
+      key = radius;
     let canvas = chromeSprites.get(key);
     if (!canvas) {
-      const size = Math.ceil(key * 2 + 4);
+      const size = Math.ceil(radius * 4 + 8);
       canvas = document.createElement('canvas');
       canvas.width = canvas.height = size;
       const cc = canvas.getContext('2d'),
@@ -15,35 +16,59 @@
         mid = size / 2;
       for (let yy = 0; yy < size; yy++)
         for (let xx = 0; xx < size; xx++) {
-          const nx = (xx + 0.5 - mid) / key,
-            ny = (yy + 0.5 - mid) / key,
+          const nx = (xx + 0.5 - mid) / (radius * 2),
+            ny = (yy + 0.5 - mid) / (radius * 2),
             d = nx * nx + ny * ny;
           if (d >= 1) continue;
           const nz = Math.sqrt(1 - d),
             rx = 2 * nx * nz,
             ry = 2 * ny * nz,
             rz = 2 * nz * nz - 1;
+          // A curved reflected studio environment, with a broad softbox and dark floor.
+          const window = Math.exp(-((rx + 0.42) ** 8 / 0.09 + (ry + 0.45) ** 8 / 0.04)),
+            strip = Math.exp(-((rx - 0.6) ** 2 / 0.018 + (ry + 0.1) ** 2 / 0.6)),
+            horizon = Math.tanh((ry - 0.14 + rx * 0.08) * 16),
+            brushed = 0;
           let light =
-            ry < -0.22
-              ? 0.88 + 0.1 * Math.sin(rx * 4)
-              : ry < 0.03
-                ? 0.12
-                : ry < 0.3
-                  ? 0.97
-                  : 0.25 + Math.max(0, rz) * 0.13;
-          light += Math.exp(-((rx + 0.6) ** 2 / 0.05 + (ry + 0.55) ** 2 / 0.035)) * 0.7;
-          light *= 0.68 + 0.32 * nz;
+            0.18 +
+            0.24 * (1 - horizon) +
+            window * 0.65 +
+            strip * 0.6 +
+            Math.exp(-((ry - 0.67) ** 2) / 0.025) * 0.36 +
+            brushed;
+          light = light * (0.72 + 0.28 * nz) + (1 - nz) ** 4 * 0.25;
           const i = (yy * size + xx) * 4,
             value = Math.max(0, Math.min(255, light * 255));
           data[i] = value;
           data[i + 1] = Math.min(255, value * 1.015);
           data[i + 2] = Math.min(255, value * 1.025);
-          data[i + 3] = Math.min(255, (1 - Math.sqrt(d)) * key * 255);
+          data[i + 3] = Math.min(255, (1 - Math.sqrt(d)) * radius * 2 * 255);
         }
       cc.putImageData(image, 0, 0);
       chromeSprites.set(key, canvas);
+      if (chromeSprites.size > 180) chromeSprites.delete(chromeSprites.keys().next().value);
     }
-    c.drawImage(canvas, x - canvas.width / 2, y - canvas.height / 2);
+    c.drawImage(
+      canvas,
+      x - canvas.width / 4,
+      y - canvas.height / 4,
+      canvas.width / 2,
+      canvas.height / 2
+    );
+    if (rotation) {
+      // The reflected light stays fixed in the room; small surface scuffs roll.
+      c.save();
+      c.translate(x, y);
+      c.rotate(rotation);
+      c.strokeStyle = '#9da5a529';
+      c.lineWidth = 0.55;
+      for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        c.ellipse(0, 0, r * (0.4 + i * 0.18), r * (0.1 + i * 0.04), 0.4, 0.3, 1.8);
+        c.stroke();
+      }
+      c.restore();
+    }
   }
   class MetalBalls {
     constructor(ctx, w, h, settings, sound) {
@@ -54,13 +79,15 @@
     }
     reset() {
       this.dragged = new Map();
-      const count = Math.min(72, Math.max(24, Math.floor((this.w * this.h) / 5000)));
+      const count = 9,
+        radius = Math.min(this.w * 0.115, this.h * 0.105, 62);
       this.balls = Array.from({ length: count }, (_, i) => ({
-        x: 25 + Math.random() * Math.max(1, this.w - 50),
-        y: 60 + Math.random() * Math.max(1, this.h - 120),
-        r: Math.min(22, Math.max(11, this.w / 24)) + (i % 3) * 2,
-        vx: (Math.random() - 0.5) * 35,
-        vy: (Math.random() - 0.5) * 35,
+        x: this.w / 2 + ((i % 3) - 1) * radius * 2.3,
+        y: this.h * 0.35 + Math.floor(i / 3) * radius * 2.3,
+        r: radius,
+        vx: 0,
+        vy: 0,
+        rotation: i * 0.37,
         held: false,
       }));
     }
@@ -81,6 +108,7 @@
       let strongest = 0;
       for (let n = 0; n < steps; n++) {
         for (const b of this.balls) {
+          b.rotation += (Math.hypot(b.vx, b.vy) * step) / b.r;
           if (b.held) {
             const drag = Array.from(this.dragged.values()).find((d) => d.ball === b);
             if (drag) {
@@ -174,14 +202,14 @@
         c.shadowColor = '#243c3c66';
         c.shadowBlur = 7;
         c.shadowOffsetY = 4;
-        sphere(c, b.x, b.y, b.r);
+        sphere(c, b.x, b.y, b.r, b.rotation);
         c.shadowColor = 'transparent';
         c.shadowOffsetY = 0;
       }
     }
     down(p) {
       let nearest = null,
-        distance = 45;
+        distance = 90;
       for (const b of this.balls) {
         const d = Math.hypot(b.x - p.x, b.y - p.y);
         if (d < Math.max(32, b.r + 14) && d < distance && !b.held) {
@@ -318,6 +346,10 @@
           r: this.w * 0.078 * scale,
           h: Math.min(this.h * 0.2, this.w * 0.44) * type.height * scale,
           broken: false,
+          tint: [185, 195, 165, 205, 178, 32, 192, 260][i],
+          facet: [true, false, false, true, false, true, false, true][i],
+          offset: -this.h,
+          landing: i * 0.075,
         };
       });
       this.balls = [];
@@ -325,6 +357,7 @@
       this.broken = false;
       this.age = 0;
       this.slow = 0;
+      this.spawnAge = 0;
     }
     resize(w, h) {
       this.w = w;
@@ -337,8 +370,9 @@
         if (t <= points[i][0]) {
           const a = points[i - 1],
             b = points[i],
-            u = (t - a[0]) / (b[0] - a[0]);
-          return a[1] + (b[1] - a[1]) * u;
+            u = (t - a[0]) / (b[0] - a[0]),
+            smooth = u * u * (3 - 2 * u);
+          return a[1] + (b[1] - a[1]) * smooth;
         }
       return points[points.length - 1][1];
     }
@@ -346,13 +380,15 @@
       const c = this.ctx,
         top = object.y - object.h;
       c.beginPath();
-      object.profile.forEach(([t, r], i) =>
-        i
-          ? c.lineTo(object.x - r * object.r, top + t * object.h)
-          : c.moveTo(object.x - r * object.r, top + t * object.h)
-      );
-      for (let i = object.profile.length - 1; i >= 0; i--) {
-        const [t, r] = object.profile[i];
+      for (let i = 0; i <= 64; i++) {
+        const t = i / 64,
+          r = this.radiusAt(object, t);
+        if (i) c.lineTo(object.x - r * object.r, top + t * object.h);
+        else c.moveTo(object.x - r * object.r, top + t * object.h);
+      }
+      for (let i = 64; i >= 0; i--) {
+        const t = i / 64,
+          r = this.radiusAt(object, t);
         c.lineTo(object.x + r * object.r, top + t * object.h);
       }
       c.closePath();
@@ -377,26 +413,50 @@
           rest: false,
         });
       };
-      for (let row = 1; row < object.profile.length; row++) {
-        const [ta, ra] = object.profile[row - 1],
-          [tb, rb] = object.profile[row];
-        for (let col = 0; col < 3; col++) {
-          const a = -1 + (col * 2) / 3,
-            b = -1 + ((col + 1) * 2) / 3,
-            p = { x: object.x + ra * object.r * a, y: top + ta * object.h },
-            q = { x: object.x + ra * object.r * b, y: top + ta * object.h },
-            r = { x: object.x + rb * object.r * b, y: top + tb * object.h },
-            s = { x: object.x + rb * object.r * a, y: top + tb * object.h };
-          triangle([p, q, r]);
-          triangle([p, r, s]);
+      const rows = 13,
+        cols = 4,
+        mesh = Array.from({ length: rows + 1 }, (_, row) =>
+          Array.from({ length: cols + 1 }, (_, col) => {
+            const t =
+                row === 0 ? 0 : row === rows ? 1 : (row + (Math.random() - 0.5) * 0.45) / rows,
+              u =
+                col === 0
+                  ? -1
+                  : col === cols
+                    ? 1
+                    : -1 + ((col + (Math.random() - 0.5) * 0.65) * 2) / cols;
+            return { x: object.x + this.radiusAt(object, t) * object.r * u, y: top + t * object.h };
+          })
+        );
+      for (let row = 0; row < rows; row++)
+        for (let col = 0; col < cols; col++) {
+          const p = mesh[row][col],
+            q = mesh[row][col + 1],
+            r = mesh[row + 1][col + 1],
+            s = mesh[row + 1][col];
+          if ((row + col) % 2) {
+            triangle([p, q, s]);
+            triangle([q, r, s]);
+          } else {
+            triangle([p, q, r]);
+            triangle([p, r, s]);
+          }
         }
-      }
       this.slow = 0.7;
       this.broken = this.objects.every((p) => p.broken);
       this.sound.glass();
       this.sound.pulse(2);
     }
     update(dt) {
+      this.spawnAge += dt;
+      for (const object of this.objects) {
+        const t = Math.max(0, Math.min(1, (this.spawnAge - object.landing) / 0.7));
+        // A staggered fall, soft impact, and small settling bounce onto the table.
+        object.offset =
+          t < 0.7
+            ? -this.h * (1 - (t / 0.7) ** 2)
+            : (-Math.sin(((t - 0.7) / 0.3) * Math.PI) * 14 * (1 - t)) / 0.3;
+      }
       this.slow = Math.max(0, this.slow - dt);
       const step = dt * (this.slow > 0 ? 0.24 : 1);
       for (const ball of this.balls) {
@@ -476,11 +536,32 @@
       this.polygon(object);
       c.fillStyle = glass;
       c.fill();
+      c.fillStyle = 'hsla(' + object.tint + ',65%,65%,.14)';
+      c.fill();
       c.strokeStyle = '#dbf9ffc9';
       c.lineWidth = 1.3;
       c.stroke();
       c.save();
       c.clip();
+      if (object.facet) {
+        for (let i = -4; i <= 4; i++) {
+          const xx = object.x + (object.r * i) / 5;
+          c.strokeStyle = i % 2 ? '#ffffff45' : '#173e4838';
+          c.lineWidth = Math.max(1, object.r * 0.06);
+          c.beginPath();
+          c.moveTo(xx, top);
+          c.lineTo(object.x + (xx - object.x) * 0.8, object.y);
+          c.stroke();
+        }
+        c.strokeStyle = '#d6ffff55';
+        c.lineWidth = 0.8;
+        for (let i = 0; i < 4; i++) {
+          const y = top + object.h * (0.57 + i * 0.1);
+          c.beginPath();
+          c.ellipse(object.x, y, object.r, object.r * 0.15, 0, 0, TAU);
+          c.stroke();
+        }
+      }
       c.strokeStyle = '#ffffffa0';
       c.lineWidth = Math.max(2, object.r * 0.09);
       c.beginPath();
@@ -552,7 +633,13 @@
         );
         c.stroke();
       }
-      for (const object of this.objects) if (!object.broken) this.drawObject(object);
+      for (const object of this.objects)
+        if (!object.broken) {
+          c.save();
+          c.translate(0, object.offset);
+          this.drawObject(object);
+          c.restore();
+        }
       for (const p of this.shards) {
         c.save();
         c.translate(p.x, p.y);
@@ -590,7 +677,11 @@
       if (this.balls.length >= 8) return;
       let index = -1;
       for (let i = this.objects.length - 1; i >= 0; i--)
-        if (!this.objects[i].broken && this.hit(p, this.objects[i])) {
+        if (
+          !this.objects[i].broken &&
+          this.objects[i].offset > -1 &&
+          this.hit(p, this.objects[i])
+        ) {
           index = i;
           break;
         }
@@ -614,7 +705,9 @@
     toy.draw();
   }
   function glassPreview(c, w, h) {
-    new GlassBreak(c, w, h, {}, silent).draw();
+    const toy = new GlassBreak(c, w, h, {}, silent);
+    for (const object of toy.objects) object.offset = 0;
+    toy.draw();
   }
   Object.assign(window.StillToys, { MetalBalls, GlassBreak, metalPreview, glassPreview });
 })();

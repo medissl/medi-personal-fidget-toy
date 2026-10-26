@@ -213,7 +213,7 @@
       const oldTick = Math.floor((this.angle / TAU) * 48);
       this.angle += delta;
       this.previous = angle;
-      if (Math.floor((this.angle / TAU) * 48) !== oldTick) this.sound.click();
+      if (Math.floor((this.angle / TAU) * 48) !== oldTick) this.sound.dial();
     }
     up(p) {
       if (p.id === this.pointer) {
@@ -226,7 +226,7 @@
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault();
         this.angle += ((event.key === 'ArrowLeft' ? -1 : 1) * TAU) / 48;
-        this.sound.click();
+        this.sound.dial();
       }
     }
   }

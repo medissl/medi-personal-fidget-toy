@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 — 2026-10-26
+
+- Added ruled cream paper and lowered the home composition. Bottom-edge taps now reveal hidden toy options without activating them.
+- Carving tips sit above the holding finger; 95% profile matches award points, empty logs replace, and new logs pop into place.
+- Exactly nine large metal balls, coherent reflections and rolling scuffs; corrected cradle transfer for one or several incoming bobs.
+- Recorded sticky slime, silicone Pop-It, packaging snaps, zipper, knob and sand sounds; continuous movement-controlled carving, sand and zipper textures. Both switch directions use the same sound. Lava and Stardust are silent apart from optional BGM.
+- Added draggable pond leaves, varied glass finishes, finer shards and staggered glass entrances.
+- Improved liquid surface resolution and GPU shading.
+- Researched and adapted MIT StarEngine touch geometry; particle head/tail trails and live checkpoint steering replace the thin dotted appearance. Full Atomus effect equations are not public in the inspected engine.
+
+
 ## 0.4.0 — 2026-10-26
 
 - Fixed Windows APK asset paths that broke nested images, fonts, music, and every recorded effect.

@@ -101,7 +101,7 @@ h2 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: clamp(20px, 4dvh, 38px) 18px 32px;
+  padding: clamp(70px, 12dvh, 118px) 18px 32px;
 }
 .home-logo {
   display: flex;
@@ -219,6 +219,14 @@ h2 {
   height: 100%;
   touch-action: none;
   outline-offset: -5px;
+}
+.player > .toy-gpu {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#playground {
+  position: relative;
 }
 .game-controls {
   position: absolute;
@@ -481,7 +489,7 @@ details p {
     height: 165px;
   }
   .home {
-    padding-top: 18px;
+    padding-top: 52px;
   }
   .home h1 {
     font-size: 35px;

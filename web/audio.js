@@ -13,6 +13,8 @@
     metal: 'metal.wav',
     zipper: 'zipper.wav',
     carve: 'carve.wav',
+    sand: 'sand.wav',
+    dial: 'dial.wav',
     chop: 'chop.wav',
     glass: 'glass.wav',
     clink: 'clink.wav',
@@ -120,6 +122,7 @@
     }
     silence() {
       this.epoch++;
+      this.stopTexture();
       for (const voice of this.voices) {
         voice.source.stop();
         voice.source.disconnect();
@@ -187,15 +190,19 @@
     }
     pop(pressed) {
       this.sample(pressed ? 'pop' : 'pop2', {
-        duration: 0.22,
+        duration: 0.3,
         interval: 65,
         group: 'pop',
-        rate: 1.1,
+        rate: 0.98 + Math.random() * 0.04,
       });
       this.pulse(2);
     }
     click() {
       this.sample('click', { duration: 0.045, interval: 60, group: 'click' });
+      this.pulse(1);
+    }
+    dial() {
+      this.sample('dial', { duration: 0.11, interval: 52, volume: 0.9, group: 'dial' });
       this.pulse(1);
     }
     water() {
@@ -208,14 +215,14 @@
     }
     slime() {
       this.sample(Math.random() < 0.5 ? 'slime' : 'slime2', {
-        duration: 0.38,
-        interval: 160,
+        duration: 0.8,
+        interval: 420,
         group: 'slime',
-        volume: 0.85,
+        volume: 1,
       });
     }
     switch(on) {
-      this.sample(on ? 'switch' : 'toggle', { duration: 0.18, interval: 45, group: 'switch' });
+      this.sample('switch', { duration: 0.18, interval: 45, group: 'switch' });
       this.pulse(2);
     }
     clack() {
@@ -223,14 +230,70 @@
       this.pulse(1);
     }
     carve() {
-      this.sample('carve', { duration: 0.32, interval: 230, volume: 0.9, group: 'carve' });
+      this.texture('carve');
+    }
+    sand() {
+      this.texture('sand');
+    }
+    texture(name, rate = 1) {
+      if (!this.active || !this.settings.sounds || (!this.context && !this.native)) return;
+      if (this.native?.setTexture) {
+        this.native.setTexture(name, 1, rate);
+        return;
+      }
+      if (this.native) {
+        this.sample(name, { duration: 2, interval: 1800 });
+        return;
+      }
+      clearTimeout(this.textureTimer);
+      this.textureTimer = setTimeout(() => this.stopTexture(), 140);
+      if (this.textureVoice?.name === name) {
+        this.textureVoice.source.playbackRate.value = rate;
+        return;
+      }
+      this.stopTextureVoice();
+      const buffer = this.buffers.get(name);
+      if (!buffer) {
+        this.load(name);
+        return;
+      }
+      const source = this.context.createBufferSource(),
+        gain = this.context.createGain(),
+        now = this.context.currentTime;
+      source.buffer = buffer;
+      source.loop = true;
+      source.playbackRate.value = rate;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(1, now + 0.025);
+      source.connect(gain);
+      gain.connect(this.sfxGain);
+      source.start();
+      this.textureVoice = { name, source, gain };
+    }
+    stopTextureVoice() {
+      const voice = this.textureVoice;
+      if (!voice) return;
+      this.textureVoice = null;
+      const now = this.context.currentTime;
+      voice.gain.gain.cancelScheduledValues(now);
+      voice.gain.gain.setTargetAtTime(0, now, 0.012);
+      voice.source.stop(now + 0.06);
+      voice.source.onended = () => {
+        voice.source.disconnect();
+        voice.gain.disconnect();
+      };
+    }
+    stopTexture() {
+      clearTimeout(this.textureTimer);
+      this.native?.stopTexture?.();
+      this.stopTextureVoice();
     }
     metal(strength = 0.5) {
       this.sample('clink', {
-        duration: 0.14,
-        interval: 70,
-        volume: 0.35 + strength * 0.6,
-        rate: 0.85 + Math.random() * 0.3,
+        duration: 0.38,
+        interval: 65,
+        volume: 0.25 + strength * 0.75,
+        rate: 0.97 + Math.random() * 0.06,
         group: 'metal',
       });
     }
@@ -244,11 +307,11 @@
       });
     }
     zip() {
-      this.sample('zipper', { duration: 0.24, interval: 230, volume: 1, group: 'zipper' });
+      this.texture('zipper');
     }
     packaging() {
       this.sample('wrap', {
-        duration: 0.12,
+        duration: 0.3,
         interval: 55,
         volume: 1,
         rate: 0.95 + Math.random() * 0.1,

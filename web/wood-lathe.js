@@ -8,6 +8,8 @@
       this.designs = this.makeDesigns();
       this.designIndex = -1;
       this.time = 0;
+      this.score = 0;
+      this.scoreFlash = 0;
       this.nextDesign();
     }
     makeDesigns() {
@@ -47,6 +49,7 @@
       this.end = 99;
       this.pointer = null;
       this.done = false;
+      this.spawn = 0;
     }
     reset() {
       this.nextDesign();
@@ -58,6 +61,8 @@
     }
     update(dt) {
       this.time += dt * (this.settings.gentle ? 0.5 : 1);
+      this.spawn = Math.min(1, this.spawn + dt / 0.42);
+      this.scoreFlash = Math.max(0, this.scoreFlash - dt);
       for (const p of [...this.chips, ...this.pieces]) {
         p.vy += 550 * dt;
         p.x += p.vx * dt;
@@ -67,7 +72,18 @@
       }
       this.chips = this.chips.filter((p) => p.life > 0 && p.y < this.h + 60);
       this.pieces = this.pieces.filter((p) => p.life > 0 && p.y < this.h + 180);
-      if (this.pointer) this.carve(this.pointer, dt);
+      if (this.pointer && this.spawn === 1) this.carve(this.toolPoint(this.pointer), dt);
+      const error = this.shape.reduce((sum, v, i) => sum + Math.abs(v - this.goal[i]), 0);
+      this.accuracy = Math.max(0, 1 - error / this.goal.reduce((sum, v) => sum + v, 0));
+      if (this.accuracy >= 0.95) {
+        this.score++;
+        this.scoreFlash = 1.5;
+        this.sound.pulse(2);
+        this.nextDesign();
+      } else if (this.shape.reduce((sum, v) => sum + v * v, 0) < 0.4) this.nextDesign();
+    }
+    toolPoint(p) {
+      return { ...p, y: p.y - Math.min(96, this.h * 0.13) };
     }
     sever(index) {
       if (index <= this.start + 1 || index >= this.end - 1) return;
@@ -247,6 +263,12 @@
       c.fill();
       this.chuck(g.left - 20, 1);
       this.chuck(g.right + 20, -1);
+      c.save();
+      const pop = 1 - (1 - this.spawn) ** 3,
+        scale = pop + Math.sin(this.spawn * Math.PI) * 0.1;
+      c.translate(this.w / 2, g.cy);
+      c.scale(scale, scale);
+      c.translate(-this.w / 2, -g.cy);
       this.log(this.shape, this.start, this.end);
       c.setLineDash([5, 5]);
       c.strokeStyle = this.done ? '#c5ffc6' : '#fff2c6';
@@ -254,6 +276,7 @@
       this.profile(this.goal, this.start, this.end);
       c.stroke();
       c.setLineDash([]);
+      c.restore();
       for (const p of this.pieces) {
         c.save();
         c.translate(p.x, p.y);
@@ -272,7 +295,7 @@
         c.restore();
       }
       if (this.pointer) {
-        const p = this.pointer,
+        const p = this.toolPoint(this.pointer),
           size = Math.max(12, this.w * 0.044);
         c.save();
         c.translate(p.x, p.y);
@@ -298,10 +321,17 @@
         c.stroke();
         c.restore();
       }
+      if (this.scoreFlash > 0) {
+        c.globalAlpha = Math.min(1, this.scoreFlash * 2);
+        c.font = '600 44px Fredoka,sans-serif';
+        c.textAlign = 'center';
+        c.fillStyle = '#513d2c';
+        c.fillText(String(this.score), this.w / 2, this.h * 0.24);
+        c.globalAlpha = 1;
+      }
     }
     down(p) {
       this.pointer = { ...p };
-      this.carve(p, 1 / 60);
     }
     move(p) {
       if (this.pointer?.id === p.id) this.pointer = { ...p };
@@ -313,6 +343,7 @@
   const silent = { carve() {}, pulse() {} };
   function woodPreview(c, w, h) {
     const t = new WoodLathe(c, w, h, { gentle: true }, silent);
+    t.spawn = 1;
     for (let i = 35; i < 70; i++) t.shape[i] = 0.6;
     t.draw();
   }

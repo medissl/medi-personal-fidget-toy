@@ -20,6 +20,125 @@
       [0.45, 0.7, 1],
     ],
   };
+  // Shade interpolated dye at display resolution, rather than enlarging lit grid pixels.
+  class LiquidSurface {
+    constructor() {
+      this.canvas = document.createElement('canvas');
+      const g = (this.gl = this.canvas.getContext('webgl', {
+        alpha: false,
+        antialias: false,
+        preserveDrawingBuffer: true,
+      }));
+      if (!g) return;
+      try {
+        this.floatTexture = !!(
+          g.getExtension('OES_texture_float') && g.getExtension('OES_texture_float_linear')
+        );
+        const shader = (type, source) => {
+          const s = g.createShader(type);
+          g.shaderSource(s, source);
+          g.compileShader(s);
+          if (!g.getShaderParameter(s, g.COMPILE_STATUS)) throw Error(g.getShaderInfoLog(s));
+          return s;
+        };
+        this.program = g.createProgram();
+        const vs = shader(
+            g.VERTEX_SHADER,
+            'attribute vec2 position;varying vec2 uv;void main(){gl_Position=vec4(position,0.,1.);uv=vec2(position.x*.5+.5,.5-position.y*.5);}'
+          ),
+          fs = shader(
+            g.FRAGMENT_SHADER,
+            `precision mediump float;uniform sampler2D dye;uniform vec2 texel;uniform float range;varying vec2 uv;
+          vec3 ink(vec2 p){return texture2D(dye,clamp(p,texel*.5,1.-texel*.5)).rgb*range;}
+          float density(vec2 p){vec3 d=ink(p);return d.r+d.g+d.b;}
+          void main(){vec3 d=ink(uv);float gx=(density(uv+vec2(texel.x,0.))-density(uv-vec2(texel.x,0.)))*2.;
+          float gy=(density(uv+vec2(0.,texel.y))-density(uv-vec2(0.,texel.y)))*2.;
+          vec3 n=normalize(vec3(-gx,-gy,1.));float diffuse=max(0.,dot(n,normalize(vec3(-.35,-.45,1.))));
+          float spec=pow(max(0.,dot(n,normalize(vec3(-.2,-.3,1.)))),32.)*min(1.,length(vec2(gx,gy)))*.32;
+          vec3 color=(1.-exp(-d*1.15))*(.83+diffuse*.25)+spec;gl_FragColor=vec4(color,1.);}`
+          );
+        g.attachShader(this.program, vs);
+        g.attachShader(this.program, fs);
+        g.linkProgram(this.program);
+        if (!g.getProgramParameter(this.program, g.LINK_STATUS))
+          throw Error(g.getProgramInfoLog(this.program));
+        g.deleteShader(vs);
+        g.deleteShader(fs);
+        g.useProgram(this.program);
+        this.buffer = g.createBuffer();
+        g.bindBuffer(g.ARRAY_BUFFER, this.buffer);
+        g.bufferData(
+          g.ARRAY_BUFFER,
+          new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+          g.STATIC_DRAW
+        );
+        const a = g.getAttribLocation(this.program, 'position');
+        g.enableVertexAttribArray(a);
+        g.vertexAttribPointer(a, 2, g.FLOAT, false, 0, 0);
+        this.texture = g.createTexture();
+        g.bindTexture(g.TEXTURE_2D, this.texture);
+        g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+        g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+        g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE);
+        g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
+        this.texel = g.getUniformLocation(this.program, 'texel');
+        g.uniform1f(g.getUniformLocation(this.program, 'range'), this.floatTexture ? 1 : 5);
+      } catch (error) {
+        this.dispose();
+        this.gl = null;
+      }
+    }
+    draw(ctx, w, h, cols, rows, dye) {
+      const g = this.gl;
+      if (!g || g.isContextLost()) return false;
+      // One shaded pixel per CSS pixel: four times the old fluid grid resolution,
+      // without fourfold fragment work on high-density phone displays.
+      const dpr = 1,
+        width = Math.round(w * dpr),
+        height = Math.round(h * dpr);
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+        g.viewport(0, 0, width, height);
+      }
+      if (!this.data || this.data.length !== cols * rows * 4)
+        this.data = this.floatTexture
+          ? new Float32Array(cols * rows * 4)
+          : new Uint8Array(cols * rows * 4);
+      for (let i = 0; i < cols * rows; i++) {
+        for (let k = 0; k < 3; k++)
+          this.data[i * 4 + k] = this.floatTexture ? dye[k][i] : Math.min(255, dye[k][i] * 51);
+        this.data[i * 4 + 3] = this.floatTexture ? 1 : 255;
+      }
+      g.texImage2D(
+        g.TEXTURE_2D,
+        0,
+        g.RGBA,
+        cols,
+        rows,
+        0,
+        g.RGBA,
+        this.floatTexture ? g.FLOAT : g.UNSIGNED_BYTE,
+        this.data
+      );
+      g.uniform2f(this.texel, 1 / cols, 1 / rows);
+      g.drawArrays(g.TRIANGLES, 0, 6);
+      if (ctx.canvas?.id === 'playground') {
+        if (!this.canvas.isConnected) {
+          this.canvas.className = 'toy-gpu';
+          this.canvas.setAttribute('aria-hidden', 'true');
+          ctx.canvas.before(this.canvas);
+        }
+        this.canvas.style.filter = ctx.canvas.style.filter;
+        ctx.clearRect(0, 0, w, h);
+      } else ctx.drawImage(this.canvas, 0, 0, w, h);
+      return true;
+    }
+    dispose() {
+      this.canvas.remove();
+      this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+  }
   class Lava {
     constructor(ctx, w, h, settings, sound) {
       Object.assign(this, { ctx, w, h, settings, sound });
@@ -28,8 +147,9 @@
       this.reset();
     }
     reset() {
-      this.cols = 84;
-      this.rows = Math.max(24, Math.min(190, Math.round((this.cols * this.h) / this.w)));
+      this.cols = 112;
+      this.rows = Math.max(24, Math.min(270, Math.round((this.cols * this.h) / this.w)));
+      if (!this.renderer && window.WebGLRenderingContext) this.renderer = new LiquidSurface();
       const n = this.cols * this.rows;
       this.u = new Float32Array(n);
       this.v = new Float32Array(n);
@@ -191,6 +311,7 @@
       }
     }
     draw() {
+      if (this.renderer?.draw(this.ctx, this.w, this.h, this.cols, this.rows, this.dye)) return;
       const data = this.image.data,
         w = this.cols,
         total = this.u.length,
@@ -220,21 +341,20 @@
     }
     down(p) {
       this.previous.set(p.id, { x: p.x, y: p.y });
-      this.sound.slime();
-      this.sound.pulse(1);
     }
-    move(p) {
-      const old = this.previous.get(p.id);
-      if (old && Math.hypot(p.x - old.x, p.y - old.y) > 8) this.sound.slime();
-    }
+    move(p) {}
     up(p) {
       this.previous.delete(p.id);
+    }
+    dispose() {
+      this.renderer?.dispose();
     }
   }
   function lavaPreview(c, w, h) {
     const t = new Lava(c, w, h, {}, {});
     for (let i = 0; i < 3; i++) t.update(1 / 60);
     t.draw();
+    t.dispose();
   }
   Object.assign(window.StillToys, { Lava, lavaPreview });
 })();

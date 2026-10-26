@@ -8,7 +8,7 @@ const { chromium } = require('playwright'),
   const server = createServer();
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = 'http://127.0.0.1:' + server.address().port,
-    out = path.resolve(__dirname, '../test-results/v4');
+    out = path.resolve(__dirname, '../test-results/v5');
   fs.mkdirSync(out, { recursive: true });
   let browser;
   try {
@@ -57,7 +57,11 @@ const { chromium } = require('playwright'),
       hash = async () =>
         crypto
           .createHash('sha256')
-          .update(await page.locator('#playground').screenshot())
+          .update(
+            await page
+              .locator((await page.locator('.toy-gpu').count()) ? '#player' : '#playground')
+              .screenshot()
+          )
           .digest('hex');
     const reveal = async () => {
       if (await page.locator('#game-controls').evaluate((e) => e.inert)) {
@@ -103,6 +107,13 @@ const { chromium } = require('playwright'),
     );
     await shot('selection');
     await page.locator('[data-toy="particles"]').click();
+    assert.equal(await page.locator('.toy-gpu').count(), 1, 'GPU surface is attached');
+    assert(
+      await page
+        .locator('#playground')
+        .evaluate((e) => e.getContext('2d').getImageData(0, 0, 1, 1).data[3] === 0),
+      'touch canvas does not obscure the GPU surface'
+    );
     assert.equal(await page.locator('#game-controls button').count(), 2);
     assert.equal(await page.locator('#toy-options button').count(), 3);
     await page.waitForTimeout(2600);
@@ -140,6 +151,24 @@ const { chromium } = require('playwright'),
         !document.querySelector('#bgm').paused && document.querySelector('#bgm').currentTime > 0.1
     );
     await page.waitForTimeout(5450);
+    const ember = page.locator('#toy-options button').nth(1);
+    await page.touchscreen.tap(195, 800);
+    assert(
+      !(await page.locator('#toy-options').evaluate((e) => e.inert)),
+      'bottom edge reveals toy options'
+    );
+    assert.equal(
+      await ember.getAttribute('aria-pressed'),
+      'false',
+      'bottom reveal does not activate the hidden palette'
+    );
+    await ember.click();
+    assert.equal(
+      await ember.getAttribute('aria-pressed'),
+      'true',
+      'second deliberate tap activates bottom option'
+    );
+    await page.locator('#toy-options button').first().click();
     const points = Array.from({ length: 10 }, (_, i) => ({
       x: 65 + (i % 5) * 65,
       y: 300 + Math.floor(i / 5) * 210,
@@ -164,6 +193,7 @@ const { chromium } = require('playwright'),
         for (const p of t.points) {
           p.x = 30;
           p.y = 30;
+          for (let i = 0; i < p.history.length; i++) p.history[i] = 30;
         }
         t.draw();
         const black = Array.from(c.getImageData(100, 100, 1, 1).data)
@@ -201,6 +231,7 @@ const { chromium } = require('playwright'),
         'no gameplay text ' + id
       );
       if (id === 'wood') {
+        await page.waitForTimeout(500);
         await page.mouse.move(180, 420);
         await page.mouse.down();
         for (let x = 100; x < 300; x += 5) await page.mouse.move(x, 430);
@@ -344,7 +375,7 @@ const { chromium } = require('playwright'),
       )
     );
     console.log(
-      'PASS: v4 branding, two columns, 14 toys, centered Play, 5-second fade, reveal-before-activate, swipe suppression, 1–10 touches, real WAV/music playback, native bridge bypass, persistence and scroll restoration.'
+      'PASS: v5 branding, two columns, 14 toys, centered Play, 5-second fade, reveal-before-activate, swipe suppression, 1–10 touches, real WAV/music playback, native bridge bypass, persistence and scroll restoration.'
     );
   } finally {
     if (browser) await browser.close();

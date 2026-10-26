@@ -10,6 +10,22 @@
     x: points.reduce((s, p) => s + p.x, 0) / points.length,
     y: points.reduce((s, p) => s + p.y, 0) / points.length,
   });
+  // JavaScript adaptation of starparticle::getAVG / getCircleFingers, StarEngine.
+  // Copyright (c) 2010-2017 Sung Woo Choi. MIT; see licenses/StarEngine-MIT.txt.
+  // https://github.com/sunglab/StarEngine/blob/46ef40a9051efd95265386282a06cbfb6ee39186/effect/StarParticle.h
+  function getCircleFingers(points) {
+    const center = average(points),
+      ordered = points.slice();
+    ordered.sort(
+      (a, b) =>
+        Math.atan2(center.y - b.y, center.x - b.x) - Math.atan2(center.y - a.y, center.x - a.x)
+    );
+    const circumference = ordered.reduce((sum, p, i) => {
+      const q = ordered[(i + 1) % ordered.length];
+      return sum + Math.hypot(p.x - q.x, p.y - q.y);
+    }, 0);
+    return { center, ordered, circumference };
+  }
   class Particles {
     constructor(ctx, w, h, settings, sound) {
       Object.assign(this, { ctx, w, h, settings, sound });
@@ -18,22 +34,29 @@
       this.reset();
     }
     reset() {
-      this.points = Array.from({ length: this.settings.density }, (_, i) => ({
-        x: Math.random() * this.w,
-        y: Math.random() * this.h,
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2,
-        u: (i + 0.5) / this.settings.density,
-        i,
-        color: i % 4,
-        band:
-          Math.sqrt(-2 * Math.log(0.001 + ((i * 0.754877666) % 0.999))) *
-          Math.cos(i * 2.399963) *
-          0.65,
-        drift: i % 9 === 0,
-        checkpoint: i,
-        previousDistance: Infinity,
-      }));
+      this.points = Array.from({ length: this.settings.density }, (_, i) => {
+        const x = Math.random() * this.w,
+          y = Math.random() * this.h;
+        return {
+          x,
+          y,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          u: (i + 0.5) / this.settings.density,
+          i,
+          color: i % 4,
+          band:
+            Math.sqrt(-2 * Math.log(0.001 + ((i * 0.754877666) % 0.999))) *
+            Math.cos(i * 2.399963) *
+            0.65,
+          drift: i % 9 === 0,
+          checkpoint: i,
+          previousDistance: Infinity,
+          phase: Math.random() * TAU,
+          spread: Math.random(),
+          history: Float32Array.from({ length: 12 }, (_, j) => (j % 2 ? y : x)),
+        };
+      });
       if (!this.renderer && window.ParticlePoints) this.renderer = new window.ParticlePoints();
       this.charge = 0;
       this.burstTime = 0;
@@ -116,7 +139,7 @@
             pairs++;
           }
         const span = distance / Math.max(1, pairs);
-        const mean = average(points);
+        const { center: mean, ordered, circumference: perimeter } = getCircleFingers(points);
         let xx = 0,
           xy = 0,
           yy = 0;
@@ -129,10 +152,12 @@
         }
         const axis = 0.5 * Math.atan2(2 * xy, xx - yy);
         return {
-          points,
+          points: ordered,
+          perimeter,
           span,
           axis,
-          energy: points.length === 1 ? 5 : Math.max(0.25, Math.min(12, span * span * 0.00025)),
+          energy: points.length === 1 ? 10 : Math.max(6, Math.min(30, span * span * 0.0004)),
+          center: mean,
         };
       });
       this.burstTime = Math.max(0, this.burstTime - dt);
@@ -154,56 +179,82 @@
           const field = fields[Math.floor(p.i / 4) % fields.length],
             route = field.points,
             routeCount = route.length;
-          if (changed) {
+          const retained = route.findIndex((q) => q.id === p.goalId);
+          if (retained >= 0) p.checkpoint = retained;
+          else if (changed || !Number.isFinite(p.checkpoint)) {
             p.checkpoint = p.i % routeCount;
             p.previousDistance = Infinity;
           }
+          const spread = 3 + p.spread * (routeCount === 1 ? 5 : 11);
           let goal = route[p.checkpoint % routeCount],
-            dx = goal.x - p.x,
-            dy = goal.y - p.y,
+            dx = goal.x + Math.cos(p.phase) * spread - p.x,
+            dy = goal.y + Math.sin(p.phase) * spread - p.y,
             d = Math.hypot(dx, dy);
           // Fingers are moving checkpoints, not vertices of a prescribed orbit.
           // Keep momentum through each checkpoint; a close fly-by advances too.
-          const reach = Math.max(7, Math.min(27, field.span * 0.12)),
-            passed =
-              d > p.previousDistance + 0.2 &&
-              p.previousDistance < Math.max(reach, field.span * 0.32);
+          const reach = Math.max(7, Math.min(16, field.span * 0.06)),
+            passed = d > p.previousDistance + 0.2 && p.previousDistance < reach * 1.2;
           if (routeCount > 1 && (d < reach || passed)) {
             p.checkpoint = (p.checkpoint + (p.color % 2 ? routeCount - 1 : 1)) % routeCount;
             goal = route[p.checkpoint];
-            dx = goal.x - p.x;
-            dy = goal.y - p.y;
+            dx = goal.x + Math.cos(p.phase) * spread - p.x;
+            dy = goal.y + Math.sin(p.phase) * spread - p.y;
             d = Math.hypot(dx, dy);
             p.previousDistance = Infinity;
           } else p.previousDistance = d;
-          const orientation = field.axis + (p.color * Math.PI) / 4,
-            cos = Math.cos(orientation),
-            sin = Math.sin(orientation),
-            u = dx * cos + dy * sin,
-            v = -dx * sin + dy * cos;
-          const stiffness = 0.0016,
-            squeeze = routeCount === 1 ? 4 : 2.6,
-            fu = u * stiffness,
-            fv = v * stiffness * squeeze;
-          p.vx += (fu * cos - fv * sin) * step;
-          p.vy += (fu * sin + fv * cos) * step;
-          const curl = (p.color % 2 ? 1 : -1) * 0.018;
-          p.vx += ((-dy / (d + 25)) * curl + goal.vx * 0.00005) * step;
-          p.vy += ((dx / (d + 25)) * curl + goal.vy * 0.00005) * step;
-          const energy = (p.vx * p.vx + p.vy * p.vy + stiffness * (u * u + v * v * squeeze)) * 0.5,
-            targetEnergy = field.energy * Math.max(0.35, 1 + p.band * 0.22) * (p.drift ? 1.8 : 1);
-          const feedback = Math.max(-0.035, Math.min(0.018, (targetEnergy - energy) * 0.004));
-          const damping = Math.pow(0.998 + feedback, step);
-          p.vx *= damping;
-          p.vy *= damping;
+          p.goalId = goal.id;
+          if (routeCount > 2) {
+            const previous = route[(p.checkpoint + routeCount - 1) % routeCount],
+              next = route[(p.checkpoint + 1) % routeCount],
+              tx = next.x - previous.x,
+              ty = next.y - previous.y,
+              len = Math.max(1, Math.hypot(tx, ty)),
+              lane = (p.color - 1.5) * 6 + (p.spread - 0.5) * 5;
+            dx = goal.x - (ty / len) * lane - p.x;
+            dy = goal.y + (tx / len) * lane - p.y;
+            d = Math.hypot(dx, dy);
+            // Steering to successive live checkpoints keeps an open interior.
+            // Inertia rounds and distorts the flow as the boundary moves.
+            const speed =
+                Math.max(2.4, Math.min(7, field.perimeter * 0.007)) * (0.88 + p.spread * 0.24),
+              desiredX = (dx / Math.max(1, d)) * speed,
+              desiredY = (dy / Math.max(1, d)) * speed,
+              turn = 0.045 + p.spread * 0.025;
+            p.vx += (desiredX - p.vx) * turn * step + goal.vx * 0.00035 * step;
+            p.vy += (desiredY - p.vy) * turn * step + goal.vy * 0.00035 * step;
+          } else {
+            const orientation = field.axis + (p.color * Math.PI) / 4,
+              cos = Math.cos(orientation),
+              sin = Math.sin(orientation),
+              u = dx * cos + dy * sin,
+              v = -dx * sin + dy * cos;
+            const stiffness = 0.0012 * (0.88 + p.spread * 0.24),
+              squeeze = routeCount === 1 ? 7 : 2.5,
+              fu = u * stiffness,
+              fv = v * stiffness * squeeze;
+            p.vx += (fu * cos - fv * sin) * step;
+            p.vy += (fu * sin + fv * cos) * step;
+            // Maintain orbital momentum, rather than damping a whole color into one line.
+            // These are local forces around live contacts, never positions on a drawn path.
+            const handed = p.color % 2 ? 1 : -1,
+              momentum = dx * p.vy - dy * p.vx,
+              desiredMomentum = handed * field.energy * (14 + p.spread * 13),
+              torque = Math.max(-0.3, Math.min(0.3, (desiredMomentum - momentum) * 0.0007));
+            p.vx += ((-dy / (d + 16)) * torque + goal.vx * 0.0007) * step;
+            p.vy += ((dx / (d + 16)) * torque + goal.vy * 0.0007) * step;
+            const energy =
+                (p.vx * p.vx + p.vy * p.vy + stiffness * (u * u + v * v * squeeze)) * 0.5,
+              targetEnergy = field.energy * (0.72 + p.spread * 0.56) * (p.drift ? 1.8 : 1);
+            const feedback = Math.max(-0.035, Math.min(0.018, (targetEnergy - energy) * 0.004));
+            const damping = Math.pow(0.998 + feedback, step);
+            p.vx *= damping;
+            p.vy *= damping;
+          }
           for (const q of contacts) if ((p.x - q.x) ** 2 + (p.y - q.y) ** 2 < 20 * 20) q.near++;
         } else if (!this.burstTime) {
-          const a =
-            Math.sin(p.y * 0.007 + this.time * 0.2) + Math.cos(p.x * 0.009 - this.time * 0.15);
-          p.vx += Math.cos(a) * 0.014 * step;
-          p.vy += Math.sin(a) * 0.014 * step;
-          p.vx *= Math.pow(0.996, step);
-          p.vy *= Math.pow(0.996, step);
+          // Incompressible curl flow keeps the idle field spread across the screen.
+          p.vx = Math.sin(p.y * 0.009 + this.time * 0.17 + p.phase) * 1.2 + Math.cos(p.phase) * 0.3;
+          p.vy = Math.cos(p.x * 0.009 - this.time * 0.13 + p.phase) * 1.2 + Math.sin(p.phase) * 0.3;
         } else {
           p.vx *= Math.pow(0.99, step);
           p.vy *= Math.pow(0.99, step);
@@ -233,8 +284,26 @@
               }
             }
           }
-        p.x = ((p.x % this.w) + this.w) % this.w;
-        p.y = ((p.y % this.h) + this.h) % this.h;
+        const wrapped =
+          (!count || count === 7) && (p.x < 0 || p.x >= this.w || p.y < 0 || p.y >= this.h);
+        // Held currents can leave the viewport and curve back; teleporting them
+        // across an edge destroyed the shape during wide pinches.
+        if (!count || count === 7) {
+          p.x = ((p.x % this.w) + this.w) % this.w;
+          p.y = ((p.y % this.h) + this.h) % this.h;
+        }
+        if (p.history) {
+          if (wrapped)
+            for (let j = 0; j < 12; j += 2) {
+              p.history[j] = p.x;
+              p.history[j + 1] = p.y;
+            }
+          else {
+            p.history.copyWithin(2, 0, 10);
+            p.history[0] = p.x;
+            p.history[1] = p.y;
+          }
+        }
       }
       this.previousCount = count;
       this.groupKey = groupKey;
@@ -246,11 +315,28 @@
       c.globalCompositeOperation = 'source-over';
       c.fillStyle = '#000000';
       c.fillRect(0, 0, this.w, this.h);
-      if (this.renderer?.draw(c, this.w, this.h, this.points, colors)) return;
+      if (this.renderer?.draw(c, this.w, this.h, this.points, colors)) {
+        if (c.canvas?.id === 'playground') c.clearRect(0, 0, this.w, this.h);
+        return;
+      }
       c.globalCompositeOperation = 'lighter';
       for (let lane = 0; lane < 4; lane++) {
+        c.strokeStyle = colors[lane];
+        c.globalAlpha = 0.4;
+        c.lineWidth = 0.9;
+        c.beginPath();
+        for (const p of this.points)
+          if (p.color === lane && p.history) {
+            const dx = p.history[10] - p.x,
+              dy = p.history[11] - p.y,
+              d = Math.hypot(dx, dy),
+              limit = d > 32 ? 32 / d : 1;
+            c.moveTo(p.x, p.y);
+            c.lineTo(p.x + dx * limit, p.y + dy * limit);
+          }
+        c.stroke();
         c.fillStyle = colors[lane];
-        c.globalAlpha = 0.78;
+        c.globalAlpha = 0.4;
         c.beginPath();
         for (const p of this.points)
           if (p.color === lane) {
@@ -268,7 +354,6 @@
     }
     down() {
       this.sound.pulse(1);
-      this.sound.space?.(Math.max(1, this.touchCount + 1));
     }
     up(p, remaining = 0, cancelled = false) {
       if (remaining) return;
